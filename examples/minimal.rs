@@ -1,7 +1,8 @@
-extern crate xplm;
-
-use xplm::plugin::{Plugin, PluginInfo};
-use xplm::{debugln, xplane_plugin};
+use xplane::{
+    debugln,
+    plugin::{Plugin, PluginInfo},
+    xplane_plugin,
+};
 
 struct MinimalPlugin;
 

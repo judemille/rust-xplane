@@ -1,7 +1,14 @@
-use ffi::StringBuffer;
-use std::ffi::{CString, NulError};
-use std::string::FromUtf8Error;
-use xplm_sys::*;
+use std::{
+    ffi::{CString, NulError},
+    string::FromUtf8Error,
+};
+
+use xplane_sys::{
+    xplmType_Data, xplmType_Double, xplmType_Float, xplmType_FloatArray, xplmType_Int,
+    xplmType_IntArray, XPLMDataTypeID,
+};
+
+use crate::ffi::StringBuffer;
 
 /// Datarefs created by X-Plane or other plugins
 pub mod borrowed;

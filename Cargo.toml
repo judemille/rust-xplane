@@ -1,16 +1,26 @@
 [package]
-authors = ["Sam Crow <samcrow@uw.edu>"]
-name = "xplm"
+authors = ["Julia DeMille <me@jdemille.com>", "Sam Crow <samcrow@uw.edu>"]
+name = "xplane"
 version = "0.3.1"
-license = "MIT/Apache-2.0"
-repository = "https://github.com/samcrow/rust-xplm"
+license = "MPL-2.0"
+repository = "https://github.com/judemille/rust-xplane"
 keywords = ["X-Plane", "plugin"]
 description = "High-level interfaces to the X-Plane plugin SDK"
 readme = "README.md"
+edition = "2021"
 
 [dependencies]
-xplm-sys = "0.4.0"
+xplane-sys = "4.0.101"
 thiserror = "1.0.24"
+num_enum = "0.6"
+
+[features]
+XPLM400 = ["XPLM303", "xplane-sys/XPLM400"]
+XPLM303 = ["XPLM301", "xplane-sys/XPLM303"]
+XPLM301 = ["XPLM300", "xplane-sys/XPLM301"]
+XPLM300 = ["XPLM210", "xplane-sys/XPLM300"]
+XPLM210 = ["XPLM200", "xplane-sys/XPLM210"]
+XPLM200 = ["xplane-sys/XPLM200"]
 
 [profile.release]
 lto = true

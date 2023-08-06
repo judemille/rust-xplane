@@ -1,16 +1,15 @@
 # X-Plane plugin APIs for Rust
 
-[![Crates.io Version](https://img.shields.io/crates/v/xplm.svg)](https://crates.io/crates/xplm)
-[![Documentation](https://docs.rs/xplm/badge.svg)](https://docs.rs/xplm)
-[![License](https://img.shields.io/crates/l/xplm.svg)](https://github.com/samcrow/rust-xplm#license)
+[![Crates.io Version](https://img.shields.io/crates/v/xplm.svg)](https://crates.io/crates/xplane)
+[![Documentation](https://docs.rs/xplane/badge.svg)](https://docs.rs/xplane)
+[![License](https://img.shields.io/crates/l/xplane.svg)](https://github.com/judemille/rust-xplane#license)
 
 ## Purpose
 
-**Rust XPLM** provides a convenient interface for X-Plane plugin development in the Rust programming language for all
-platforms.
+**Rust X-Plane** provides a convenient interface for X-Plane plugin development in the Rust programming language for all
+platforms. These interfaces should *mostly* be safe.
 
-As we use the [X-Plane SDK](https://developer.x-plane.com/sdk/) version 3.0, any plugin created with this library
-supports X-Plane version 11.10 or later.
+This project is designed to support any 64-bit version of X-Plane, so long as the right feature gates are used.
 
 ## Status
 
@@ -28,13 +27,13 @@ completely.
 
 Some more examples can be found in the `examples/` directory.
 
-This small snipped, however, is the minimal boilerplate needed to make your plugin compile.
+~~This small snippet, however, is the minimal boilerplate needed to make your plugin compile.~~
 
 ```rust
 extern crate xplm;
 
-use xplm::plugin::{Plugin, PluginInfo};
-use xplm::{debugln, xplane_plugin};
+use xplane::plugin::{Plugin, PluginInfo};
+use xplane::{debugln, xplane_plugin};
 
 struct MinimalPlugin;
 
@@ -59,16 +58,21 @@ impl Plugin for MinimalPlugin {
 xplane_plugin!(MinimalPlugin);
 ```
 
+## Disclaimer
+The author of this project is a trans lesbian who unequivocally supports Ukraine, and opposes any and all human rights violations.  
+Do not use this project if you:
+ * Do not unequivocally support the LGBTQ+ population, including transgender individuals.
+ * Do not support Ukraine
+ * Support any far-right parties or politicians (including Vladimir Putin, the GOP, AfD, FdI, and similar)
+
+I cannot stop you, but if anyone found to meet the above listed criteria interacts with the project, they will be blocked from posting issues or pull requests.
+
 ## License
 
-Licensed under either of
-
-* Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-* MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
-
-at your option.
+Licensed under the Mozilla Public License, version 2.0.  
+Any code from commit `ba89d4234c5b4d7088a40b2bb8f537f72e1e2df3` and before is dual-licensed under the Apache License and the MIT License, at your choice.
 
 ### Contribution
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you shall
-be dual licensed as above, without any additional terms or conditions.
+be licensed as above, without any additional terms or conditions.

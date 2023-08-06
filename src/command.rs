@@ -1,9 +1,14 @@
-use std::ffi::CString;
-use std::ffi::NulError;
-use std::ops::DerefMut;
-use std::os::raw::{c_int, c_void};
+use std::{
+    ffi::{CString, NulError},
+    ops::DerefMut,
+    os::raw::{c_int, c_void},
+};
 
-use xplm_sys::*;
+use xplane_sys::{
+    xplm_CommandBegin, xplm_CommandContinue, xplm_CommandEnd, XPLMCommandBegin,
+    XPLMCommandCallback_f, XPLMCommandEnd, XPLMCommandOnce, XPLMCommandPhase, XPLMCommandRef,
+    XPLMCreateCommand, XPLMFindCommand, XPLMRegisterCommandHandler, XPLMUnregisterCommandHandler,
+};
 
 /// A command created by X-Plane or another plugin, that can be triggered
 #[derive(Debug)]

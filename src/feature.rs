@@ -1,7 +1,10 @@
-use std::ffi::{CStr, CString};
-use std::fmt;
-use std::os::raw::*;
-use xplm_sys;
+use std::{
+    ffi::{CStr, CString},
+    fmt,
+    os::raw::{c_char, c_int, c_void},
+};
+
+use xplane_sys;
 
 /// A feature provided by the SDK that this plugin is running in
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -20,7 +23,7 @@ impl Feature {
     /// Returns true if this feature is currently enabled
     pub fn enabled(&self) -> bool {
         let name_c = CString::new(&*self.name).unwrap();
-        let enabled = unsafe { xplm_sys::XPLMIsFeatureEnabled(name_c.as_ptr()) };
+        let enabled = unsafe { xplane_sys::XPLMIsFeatureEnabled(name_c.as_ptr()) };
         enabled == 1
     }
 
@@ -29,7 +32,7 @@ impl Feature {
         // Because this name was either copied from C with XPLMEnumerateFeatures or
         // checked with XPLMHasFeature, it must be valid as a C string.
         let name_c = CString::new(&*self.name).unwrap();
-        unsafe { xplm_sys::XPLMEnableFeature(name_c.as_ptr(), enable as c_int) }
+        unsafe { xplane_sys::XPLMEnableFeature(name_c.as_ptr(), enable as c_int) }
     }
 }
 
@@ -43,7 +46,7 @@ impl fmt::Display for Feature {
 pub fn find_feature<S: Into<String>>(name: S) -> Option<Feature> {
     match CString::new(name.into()) {
         Ok(name) => {
-            let has_feature = unsafe { xplm_sys::XPLMHasFeature(name.as_ptr()) };
+            let has_feature = unsafe { xplane_sys::XPLMHasFeature(name.as_ptr()) };
             if has_feature == 1 {
                 // Convert name back into a String
                 // Because the string was not modified, conversion will always work.
@@ -63,7 +66,7 @@ pub fn all_features() -> Vec<Feature> {
     let mut features = Vec::new();
     let features_ptr: *mut _ = &mut features;
     unsafe {
-        xplm_sys::XPLMEnumerateFeatures(Some(feature_callback), features_ptr as *mut c_void);
+        xplane_sys::XPLMEnumerateFeatures(Some(feature_callback), features_ptr as *mut c_void);
     }
     features
 }

@@ -1,9 +1,11 @@
-use std::mem;
-use std::ops::Deref;
-use std::os::raw::*;
-use std::ptr;
+use std::{
+    mem,
+    ops::Deref,
+    os::raw::{c_char, c_int, c_void},
+    ptr,
+};
 
-use xplm_sys;
+use xplane_sys;
 
 use super::geometry::{Point, Rect};
 
@@ -20,11 +22,11 @@ pub enum Cursor {
 
 impl Cursor {
     /// Converts this cursor into an XPLMCursorStatus
-    fn as_xplm(&self) -> xplm_sys::XPLMCursorStatus {
+    fn as_xplm(&self) -> xplane_sys::XPLMCursorStatus {
         match *self {
-            Cursor::Default => xplm_sys::xplm_CursorDefault as xplm_sys::XPLMCursorStatus,
-            Cursor::Arrow => xplm_sys::xplm_CursorArrow as xplm_sys::XPLMCursorStatus,
-            Cursor::None => xplm_sys::xplm_CursorHidden as xplm_sys::XPLMCursorStatus,
+            Cursor::Default => xplane_sys::xplm_CursorDefault as xplane_sys::XPLMCursorStatus,
+            Cursor::Arrow => xplane_sys::xplm_CursorArrow as xplane_sys::XPLMCursorStatus,
+            Cursor::None => xplane_sys::xplm_CursorHidden as xplane_sys::XPLMCursorStatus,
         }
     }
 }
@@ -86,7 +88,7 @@ impl Deref for WindowRef {
 /// to make windows appear.
 pub struct Window {
     /// The window ID
-    id: xplm_sys::XPLMWindowID,
+    id: xplane_sys::XPLMWindowID,
     /// The delegate
     delegate: Box<dyn WindowDelegate>,
 }
@@ -104,8 +106,8 @@ impl Window {
         });
         let window_ptr: *mut Window = &mut *window_box;
 
-        let mut window_info = xplm_sys::XPLMCreateWindow_t {
-            structSize: mem::size_of::<xplm_sys::XPLMCreateWindow_t>() as _,
+        let mut window_info = xplane_sys::XPLMCreateWindow_t {
+            structSize: mem::size_of::<xplane_sys::XPLMCreateWindow_t>() as _,
             left: geometry.left(),
             top: geometry.top(),
             right: geometry.right(),
@@ -118,11 +120,11 @@ impl Window {
             handleMouseWheelFunc: Some(window_scroll),
             refcon: window_ptr as *mut _,
             decorateAsFloatingWindow: 0,
-            layer: xplm_sys::xplm_WindowLayerFloatingWindows as _,
+            layer: xplane_sys::xplm_WindowLayerFloatingWindows as _,
             handleRightClickFunc: None,
         };
 
-        let window_id = unsafe { xplm_sys::XPLMCreateWindowEx(&mut window_info) };
+        let window_id = unsafe { xplane_sys::XPLMCreateWindowEx(&mut window_info) };
         window_box.id = window_id;
 
         WindowRef { window: window_box }
@@ -135,7 +137,13 @@ impl Window {
             let mut top = 0;
             let mut right = 0;
             let mut bottom = 0;
-            xplm_sys::XPLMGetWindowGeometry(self.id, &mut left, &mut top, &mut right, &mut bottom);
+            xplane_sys::XPLMGetWindowGeometry(
+                self.id,
+                &mut left,
+                &mut top,
+                &mut right,
+                &mut bottom,
+            );
             Rect::from_left_top_right_bottom(left, top, right, bottom)
         }
     }
@@ -143,7 +151,7 @@ impl Window {
     pub fn set_geometry<R: Into<Rect<i32>>>(&self, geometry: R) {
         let geometry = geometry.into();
         unsafe {
-            xplm_sys::XPLMSetWindowGeometry(
+            xplane_sys::XPLMSetWindowGeometry(
                 self.id,
                 geometry.left(),
                 geometry.top(),
@@ -155,12 +163,12 @@ impl Window {
 
     /// Returns true if this window is visible
     pub fn visible(&self) -> bool {
-        1 == unsafe { xplm_sys::XPLMGetWindowIsVisible(self.id) }
+        1 == unsafe { xplane_sys::XPLMGetWindowIsVisible(self.id) }
     }
     /// Sets the window as visible or invisible
     pub fn set_visible(&self, visible: bool) {
         unsafe {
-            xplm_sys::XPLMSetWindowIsVisible(self.id, visible as _);
+            xplane_sys::XPLMSetWindowIsVisible(self.id, visible as _);
         }
     }
 }
@@ -168,22 +176,22 @@ impl Window {
 impl Drop for Window {
     fn drop(&mut self) {
         unsafe {
-            xplm_sys::XPLMDestroyWindow(self.id);
+            xplane_sys::XPLMDestroyWindow(self.id);
         }
     }
 }
 
 /// Callback in which windows are drawn
-unsafe extern "C" fn window_draw(_window: xplm_sys::XPLMWindowID, refcon: *mut c_void) {
+unsafe extern "C" fn window_draw(_window: xplane_sys::XPLMWindowID, refcon: *mut c_void) {
     let window = refcon as *mut Window;
     (*window).delegate.draw(&*window);
 }
 
 /// Keyboard callback
 unsafe extern "C" fn window_key(
-    _window: xplm_sys::XPLMWindowID,
+    _window: xplane_sys::XPLMWindowID,
     key: c_char,
-    flags: xplm_sys::XPLMKeyFlags,
+    flags: xplane_sys::XPLMKeyFlags,
     virtual_key: c_char,
     refcon: *mut c_void,
     losing_focus: c_int,
@@ -199,10 +207,10 @@ unsafe extern "C" fn window_key(
 
 /// Mouse callback
 unsafe extern "C" fn window_mouse(
-    _window: xplm_sys::XPLMWindowID,
+    _window: xplane_sys::XPLMWindowID,
     x: c_int,
     y: c_int,
-    status: xplm_sys::XPLMMouseStatus,
+    status: xplane_sys::XPLMMouseStatus,
     refcon: *mut c_void,
 ) -> c_int {
     let window = refcon as *mut Window;
@@ -223,11 +231,11 @@ unsafe extern "C" fn window_mouse(
 
 /// Cursor callback
 unsafe extern "C" fn window_cursor(
-    _window: xplm_sys::XPLMWindowID,
+    _window: xplane_sys::XPLMWindowID,
     x: c_int,
     y: c_int,
     refcon: *mut c_void,
-) -> xplm_sys::XPLMCursorStatus {
+) -> xplane_sys::XPLMCursorStatus {
     let window = refcon as *mut Window;
     let cursor = (*window).delegate.cursor(&*window, Point::from((x, y)));
     cursor.as_xplm()
@@ -235,7 +243,7 @@ unsafe extern "C" fn window_cursor(
 
 /// Scroll callback
 unsafe extern "C" fn window_scroll(
-    _window: xplm_sys::XPLMWindowID,
+    _window: xplane_sys::XPLMWindowID,
     x: c_int,
     y: c_int,
     wheel: c_int,
@@ -412,117 +420,117 @@ impl Key {
     /// Converts an XPLM virtual key code into a Key
     fn from_xplm(xplm_key: c_char) -> Option<Self> {
         match xplm_key as u32 {
-            xplm_sys::XPLM_VK_BACK => Some(Key::Back),
-            xplm_sys::XPLM_VK_TAB => Some(Key::Tab),
-            xplm_sys::XPLM_VK_CLEAR => Some(Key::Clear),
-            xplm_sys::XPLM_VK_RETURN => Some(Key::Return),
-            xplm_sys::XPLM_VK_ESCAPE => Some(Key::Escape),
-            xplm_sys::XPLM_VK_SPACE => Some(Key::Space),
-            xplm_sys::XPLM_VK_PRIOR => Some(Key::Prior),
-            xplm_sys::XPLM_VK_NEXT => Some(Key::Next),
-            xplm_sys::XPLM_VK_END => Some(Key::End),
-            xplm_sys::XPLM_VK_HOME => Some(Key::Home),
-            xplm_sys::XPLM_VK_LEFT => Some(Key::Left),
-            xplm_sys::XPLM_VK_UP => Some(Key::Up),
-            xplm_sys::XPLM_VK_RIGHT => Some(Key::Right),
-            xplm_sys::XPLM_VK_DOWN => Some(Key::Down),
-            xplm_sys::XPLM_VK_SELECT => Some(Key::Select),
-            xplm_sys::XPLM_VK_PRINT => Some(Key::Print),
-            xplm_sys::XPLM_VK_EXECUTE => Some(Key::Execute),
-            xplm_sys::XPLM_VK_SNAPSHOT => Some(Key::Snapshot),
-            xplm_sys::XPLM_VK_INSERT => Some(Key::Insert),
-            xplm_sys::XPLM_VK_DELETE => Some(Key::Delete),
-            xplm_sys::XPLM_VK_HELP => Some(Key::Help),
-            xplm_sys::XPLM_VK_0 => Some(Key::Key0),
-            xplm_sys::XPLM_VK_1 => Some(Key::Key1),
-            xplm_sys::XPLM_VK_2 => Some(Key::Key2),
-            xplm_sys::XPLM_VK_3 => Some(Key::Key3),
-            xplm_sys::XPLM_VK_4 => Some(Key::Key4),
-            xplm_sys::XPLM_VK_5 => Some(Key::Key5),
-            xplm_sys::XPLM_VK_6 => Some(Key::Key6),
-            xplm_sys::XPLM_VK_7 => Some(Key::Key7),
-            xplm_sys::XPLM_VK_8 => Some(Key::Key8),
-            xplm_sys::XPLM_VK_9 => Some(Key::Key9),
-            xplm_sys::XPLM_VK_A => Some(Key::A),
-            xplm_sys::XPLM_VK_B => Some(Key::B),
-            xplm_sys::XPLM_VK_C => Some(Key::C),
-            xplm_sys::XPLM_VK_D => Some(Key::D),
-            xplm_sys::XPLM_VK_E => Some(Key::E),
-            xplm_sys::XPLM_VK_F => Some(Key::F),
-            xplm_sys::XPLM_VK_G => Some(Key::G),
-            xplm_sys::XPLM_VK_H => Some(Key::H),
-            xplm_sys::XPLM_VK_I => Some(Key::I),
-            xplm_sys::XPLM_VK_J => Some(Key::J),
-            xplm_sys::XPLM_VK_K => Some(Key::K),
-            xplm_sys::XPLM_VK_L => Some(Key::L),
-            xplm_sys::XPLM_VK_M => Some(Key::M),
-            xplm_sys::XPLM_VK_N => Some(Key::N),
-            xplm_sys::XPLM_VK_O => Some(Key::O),
-            xplm_sys::XPLM_VK_P => Some(Key::P),
-            xplm_sys::XPLM_VK_Q => Some(Key::Q),
-            xplm_sys::XPLM_VK_R => Some(Key::R),
-            xplm_sys::XPLM_VK_S => Some(Key::S),
-            xplm_sys::XPLM_VK_T => Some(Key::T),
-            xplm_sys::XPLM_VK_U => Some(Key::U),
-            xplm_sys::XPLM_VK_V => Some(Key::V),
-            xplm_sys::XPLM_VK_W => Some(Key::W),
-            xplm_sys::XPLM_VK_X => Some(Key::X),
-            xplm_sys::XPLM_VK_Y => Some(Key::Y),
-            xplm_sys::XPLM_VK_Z => Some(Key::Z),
-            xplm_sys::XPLM_VK_NUMPAD0 => Some(Key::Numpad0),
-            xplm_sys::XPLM_VK_NUMPAD1 => Some(Key::Numpad1),
-            xplm_sys::XPLM_VK_NUMPAD2 => Some(Key::Numpad2),
-            xplm_sys::XPLM_VK_NUMPAD3 => Some(Key::Numpad3),
-            xplm_sys::XPLM_VK_NUMPAD4 => Some(Key::Numpad4),
-            xplm_sys::XPLM_VK_NUMPAD5 => Some(Key::Numpad5),
-            xplm_sys::XPLM_VK_NUMPAD6 => Some(Key::Numpad6),
-            xplm_sys::XPLM_VK_NUMPAD7 => Some(Key::Numpad7),
-            xplm_sys::XPLM_VK_NUMPAD8 => Some(Key::Numpad8),
-            xplm_sys::XPLM_VK_NUMPAD9 => Some(Key::Numpad9),
-            xplm_sys::XPLM_VK_MULTIPLY => Some(Key::Multiply),
-            xplm_sys::XPLM_VK_ADD => Some(Key::Add),
-            xplm_sys::XPLM_VK_SEPARATOR => Some(Key::Separator),
-            xplm_sys::XPLM_VK_SUBTRACT => Some(Key::Subtract),
-            xplm_sys::XPLM_VK_DECIMAL => Some(Key::Decimal),
-            xplm_sys::XPLM_VK_DIVIDE => Some(Key::Divide),
-            xplm_sys::XPLM_VK_F1 => Some(Key::F1),
-            xplm_sys::XPLM_VK_F2 => Some(Key::F2),
-            xplm_sys::XPLM_VK_F3 => Some(Key::F3),
-            xplm_sys::XPLM_VK_F4 => Some(Key::F4),
-            xplm_sys::XPLM_VK_F5 => Some(Key::F5),
-            xplm_sys::XPLM_VK_F6 => Some(Key::F6),
-            xplm_sys::XPLM_VK_F7 => Some(Key::F7),
-            xplm_sys::XPLM_VK_F8 => Some(Key::F8),
-            xplm_sys::XPLM_VK_F9 => Some(Key::F9),
-            xplm_sys::XPLM_VK_F10 => Some(Key::F10),
-            xplm_sys::XPLM_VK_F11 => Some(Key::F11),
-            xplm_sys::XPLM_VK_F12 => Some(Key::F12),
-            xplm_sys::XPLM_VK_F13 => Some(Key::F13),
-            xplm_sys::XPLM_VK_F14 => Some(Key::F14),
-            xplm_sys::XPLM_VK_F15 => Some(Key::F15),
-            xplm_sys::XPLM_VK_F16 => Some(Key::F16),
-            xplm_sys::XPLM_VK_F17 => Some(Key::F17),
-            xplm_sys::XPLM_VK_F18 => Some(Key::F18),
-            xplm_sys::XPLM_VK_F19 => Some(Key::F19),
-            xplm_sys::XPLM_VK_F20 => Some(Key::F20),
-            xplm_sys::XPLM_VK_F21 => Some(Key::F21),
-            xplm_sys::XPLM_VK_F22 => Some(Key::F22),
-            xplm_sys::XPLM_VK_F23 => Some(Key::F23),
-            xplm_sys::XPLM_VK_F24 => Some(Key::F24),
-            xplm_sys::XPLM_VK_EQUAL => Some(Key::Equal),
-            xplm_sys::XPLM_VK_MINUS => Some(Key::Minus),
-            xplm_sys::XPLM_VK_RBRACE => Some(Key::ClosingBrace),
-            xplm_sys::XPLM_VK_LBRACE => Some(Key::OpeningBrace),
-            xplm_sys::XPLM_VK_QUOTE => Some(Key::Quote),
-            xplm_sys::XPLM_VK_SEMICOLON => Some(Key::Semicolon),
-            xplm_sys::XPLM_VK_BACKSLASH => Some(Key::Backslash),
-            xplm_sys::XPLM_VK_COMMA => Some(Key::Comma),
-            xplm_sys::XPLM_VK_SLASH => Some(Key::Slash),
-            xplm_sys::XPLM_VK_PERIOD => Some(Key::Period),
-            xplm_sys::XPLM_VK_BACKQUOTE => Some(Key::Backquote),
-            xplm_sys::XPLM_VK_ENTER => Some(Key::Enter),
-            xplm_sys::XPLM_VK_NUMPAD_ENT => Some(Key::NumpadEnter),
-            xplm_sys::XPLM_VK_NUMPAD_EQ => Some(Key::NumpadEqual),
+            xplane_sys::XPLM_VK_BACK => Some(Key::Back),
+            xplane_sys::XPLM_VK_TAB => Some(Key::Tab),
+            xplane_sys::XPLM_VK_CLEAR => Some(Key::Clear),
+            xplane_sys::XPLM_VK_RETURN => Some(Key::Return),
+            xplane_sys::XPLM_VK_ESCAPE => Some(Key::Escape),
+            xplane_sys::XPLM_VK_SPACE => Some(Key::Space),
+            xplane_sys::XPLM_VK_PRIOR => Some(Key::Prior),
+            xplane_sys::XPLM_VK_NEXT => Some(Key::Next),
+            xplane_sys::XPLM_VK_END => Some(Key::End),
+            xplane_sys::XPLM_VK_HOME => Some(Key::Home),
+            xplane_sys::XPLM_VK_LEFT => Some(Key::Left),
+            xplane_sys::XPLM_VK_UP => Some(Key::Up),
+            xplane_sys::XPLM_VK_RIGHT => Some(Key::Right),
+            xplane_sys::XPLM_VK_DOWN => Some(Key::Down),
+            xplane_sys::XPLM_VK_SELECT => Some(Key::Select),
+            xplane_sys::XPLM_VK_PRINT => Some(Key::Print),
+            xplane_sys::XPLM_VK_EXECUTE => Some(Key::Execute),
+            xplane_sys::XPLM_VK_SNAPSHOT => Some(Key::Snapshot),
+            xplane_sys::XPLM_VK_INSERT => Some(Key::Insert),
+            xplane_sys::XPLM_VK_DELETE => Some(Key::Delete),
+            xplane_sys::XPLM_VK_HELP => Some(Key::Help),
+            xplane_sys::XPLM_VK_0 => Some(Key::Key0),
+            xplane_sys::XPLM_VK_1 => Some(Key::Key1),
+            xplane_sys::XPLM_VK_2 => Some(Key::Key2),
+            xplane_sys::XPLM_VK_3 => Some(Key::Key3),
+            xplane_sys::XPLM_VK_4 => Some(Key::Key4),
+            xplane_sys::XPLM_VK_5 => Some(Key::Key5),
+            xplane_sys::XPLM_VK_6 => Some(Key::Key6),
+            xplane_sys::XPLM_VK_7 => Some(Key::Key7),
+            xplane_sys::XPLM_VK_8 => Some(Key::Key8),
+            xplane_sys::XPLM_VK_9 => Some(Key::Key9),
+            xplane_sys::XPLM_VK_A => Some(Key::A),
+            xplane_sys::XPLM_VK_B => Some(Key::B),
+            xplane_sys::XPLM_VK_C => Some(Key::C),
+            xplane_sys::XPLM_VK_D => Some(Key::D),
+            xplane_sys::XPLM_VK_E => Some(Key::E),
+            xplane_sys::XPLM_VK_F => Some(Key::F),
+            xplane_sys::XPLM_VK_G => Some(Key::G),
+            xplane_sys::XPLM_VK_H => Some(Key::H),
+            xplane_sys::XPLM_VK_I => Some(Key::I),
+            xplane_sys::XPLM_VK_J => Some(Key::J),
+            xplane_sys::XPLM_VK_K => Some(Key::K),
+            xplane_sys::XPLM_VK_L => Some(Key::L),
+            xplane_sys::XPLM_VK_M => Some(Key::M),
+            xplane_sys::XPLM_VK_N => Some(Key::N),
+            xplane_sys::XPLM_VK_O => Some(Key::O),
+            xplane_sys::XPLM_VK_P => Some(Key::P),
+            xplane_sys::XPLM_VK_Q => Some(Key::Q),
+            xplane_sys::XPLM_VK_R => Some(Key::R),
+            xplane_sys::XPLM_VK_S => Some(Key::S),
+            xplane_sys::XPLM_VK_T => Some(Key::T),
+            xplane_sys::XPLM_VK_U => Some(Key::U),
+            xplane_sys::XPLM_VK_V => Some(Key::V),
+            xplane_sys::XPLM_VK_W => Some(Key::W),
+            xplane_sys::XPLM_VK_X => Some(Key::X),
+            xplane_sys::XPLM_VK_Y => Some(Key::Y),
+            xplane_sys::XPLM_VK_Z => Some(Key::Z),
+            xplane_sys::XPLM_VK_NUMPAD0 => Some(Key::Numpad0),
+            xplane_sys::XPLM_VK_NUMPAD1 => Some(Key::Numpad1),
+            xplane_sys::XPLM_VK_NUMPAD2 => Some(Key::Numpad2),
+            xplane_sys::XPLM_VK_NUMPAD3 => Some(Key::Numpad3),
+            xplane_sys::XPLM_VK_NUMPAD4 => Some(Key::Numpad4),
+            xplane_sys::XPLM_VK_NUMPAD5 => Some(Key::Numpad5),
+            xplane_sys::XPLM_VK_NUMPAD6 => Some(Key::Numpad6),
+            xplane_sys::XPLM_VK_NUMPAD7 => Some(Key::Numpad7),
+            xplane_sys::XPLM_VK_NUMPAD8 => Some(Key::Numpad8),
+            xplane_sys::XPLM_VK_NUMPAD9 => Some(Key::Numpad9),
+            xplane_sys::XPLM_VK_MULTIPLY => Some(Key::Multiply),
+            xplane_sys::XPLM_VK_ADD => Some(Key::Add),
+            xplane_sys::XPLM_VK_SEPARATOR => Some(Key::Separator),
+            xplane_sys::XPLM_VK_SUBTRACT => Some(Key::Subtract),
+            xplane_sys::XPLM_VK_DECIMAL => Some(Key::Decimal),
+            xplane_sys::XPLM_VK_DIVIDE => Some(Key::Divide),
+            xplane_sys::XPLM_VK_F1 => Some(Key::F1),
+            xplane_sys::XPLM_VK_F2 => Some(Key::F2),
+            xplane_sys::XPLM_VK_F3 => Some(Key::F3),
+            xplane_sys::XPLM_VK_F4 => Some(Key::F4),
+            xplane_sys::XPLM_VK_F5 => Some(Key::F5),
+            xplane_sys::XPLM_VK_F6 => Some(Key::F6),
+            xplane_sys::XPLM_VK_F7 => Some(Key::F7),
+            xplane_sys::XPLM_VK_F8 => Some(Key::F8),
+            xplane_sys::XPLM_VK_F9 => Some(Key::F9),
+            xplane_sys::XPLM_VK_F10 => Some(Key::F10),
+            xplane_sys::XPLM_VK_F11 => Some(Key::F11),
+            xplane_sys::XPLM_VK_F12 => Some(Key::F12),
+            xplane_sys::XPLM_VK_F13 => Some(Key::F13),
+            xplane_sys::XPLM_VK_F14 => Some(Key::F14),
+            xplane_sys::XPLM_VK_F15 => Some(Key::F15),
+            xplane_sys::XPLM_VK_F16 => Some(Key::F16),
+            xplane_sys::XPLM_VK_F17 => Some(Key::F17),
+            xplane_sys::XPLM_VK_F18 => Some(Key::F18),
+            xplane_sys::XPLM_VK_F19 => Some(Key::F19),
+            xplane_sys::XPLM_VK_F20 => Some(Key::F20),
+            xplane_sys::XPLM_VK_F21 => Some(Key::F21),
+            xplane_sys::XPLM_VK_F22 => Some(Key::F22),
+            xplane_sys::XPLM_VK_F23 => Some(Key::F23),
+            xplane_sys::XPLM_VK_F24 => Some(Key::F24),
+            xplane_sys::XPLM_VK_EQUAL => Some(Key::Equal),
+            xplane_sys::XPLM_VK_MINUS => Some(Key::Minus),
+            xplane_sys::XPLM_VK_RBRACE => Some(Key::ClosingBrace),
+            xplane_sys::XPLM_VK_LBRACE => Some(Key::OpeningBrace),
+            xplane_sys::XPLM_VK_QUOTE => Some(Key::Quote),
+            xplane_sys::XPLM_VK_SEMICOLON => Some(Key::Semicolon),
+            xplane_sys::XPLM_VK_BACKSLASH => Some(Key::Backslash),
+            xplane_sys::XPLM_VK_COMMA => Some(Key::Comma),
+            xplane_sys::XPLM_VK_SLASH => Some(Key::Slash),
+            xplane_sys::XPLM_VK_PERIOD => Some(Key::Period),
+            xplane_sys::XPLM_VK_BACKQUOTE => Some(Key::Backquote),
+            xplane_sys::XPLM_VK_ENTER => Some(Key::Enter),
+            xplane_sys::XPLM_VK_NUMPAD_ENT => Some(Key::NumpadEnter),
+            xplane_sys::XPLM_VK_NUMPAD_EQ => Some(Key::NumpadEqual),
             _ => None,
         }
     }
@@ -549,7 +557,7 @@ impl KeyEvent {
     /// Creates a key event from XPLM key information
     fn from_xplm(
         key: c_char,
-        flags: xplm_sys::XPLMKeyFlags,
+        flags: xplane_sys::XPLMKeyFlags,
         virtual_key: c_char,
     ) -> Result<Self, KeyEventError> {
         let basic_char = match key as u8 {
@@ -557,16 +565,18 @@ impl KeyEvent {
             b'\t' | b' '..=b'~' => Some(key as u8 as char),
             _ => None,
         };
-        let action = if flags & xplm_sys::xplm_DownFlag as ::xplm_sys::XPLMKeyFlags != 0 {
+        let action = if flags & xplane_sys::xplm_DownFlag as ::xplane_sys::XPLMKeyFlags != 0 {
             KeyAction::Press
-        } else if flags & xplm_sys::xplm_UpFlag as ::xplm_sys::XPLMKeyFlags != 0 {
+        } else if flags & xplane_sys::xplm_UpFlag as ::xplane_sys::XPLMKeyFlags != 0 {
             KeyAction::Release
         } else {
             return Err(KeyEventError::InvalidFlags(flags));
         };
-        let control_pressed = flags & xplm_sys::xplm_ControlFlag as ::xplm_sys::XPLMKeyFlags != 0;
-        let shift_pressed = flags & xplm_sys::xplm_ShiftFlag as ::xplm_sys::XPLMKeyFlags != 0;
-        let option_pressed = flags & xplm_sys::xplm_OptionAltFlag as ::xplm_sys::XPLMKeyFlags != 0;
+        let control_pressed =
+            flags & xplane_sys::xplm_ControlFlag as ::xplane_sys::XPLMKeyFlags != 0;
+        let shift_pressed = flags & xplane_sys::xplm_ShiftFlag as ::xplane_sys::XPLMKeyFlags != 0;
+        let option_pressed =
+            flags & xplane_sys::xplm_OptionAltFlag as ::xplane_sys::XPLMKeyFlags != 0;
         let key = match Key::from_xplm(virtual_key) {
             Some(key) => key,
             None => return Err(KeyEventError::InvalidKey(virtual_key)),
@@ -614,7 +624,7 @@ impl KeyEvent {
 #[derive(thiserror::Error, Debug)]
 enum KeyEventError {
     #[error("Unexpected key flags {0:b}")]
-    InvalidFlags(xplm_sys::XPLMKeyFlags),
+    InvalidFlags(xplane_sys::XPLMKeyFlags),
 
     #[error("Invalid or unsupported key with code: 0x{0:x}")]
     InvalidKey(c_char),
@@ -632,12 +642,12 @@ pub enum MouseAction {
 }
 
 impl MouseAction {
-    fn from_xplm(status: xplm_sys::XPLMMouseStatus) -> Option<MouseAction> {
-        if status == xplm_sys::xplm_MouseDown as xplm_sys::XPLMMouseStatus {
+    fn from_xplm(status: xplane_sys::XPLMMouseStatus) -> Option<MouseAction> {
+        if status == xplane_sys::xplm_MouseDown as xplane_sys::XPLMMouseStatus {
             Some(MouseAction::Down)
-        } else if status == xplm_sys::xplm_MouseDrag as xplm_sys::XPLMMouseStatus {
+        } else if status == xplane_sys::xplm_MouseDrag as xplane_sys::XPLMMouseStatus {
             Some(MouseAction::Drag)
-        } else if status == xplm_sys::xplm_MouseUp as xplm_sys::XPLMMouseStatus {
+        } else if status == xplane_sys::xplm_MouseUp as xplane_sys::XPLMMouseStatus {
             Some(MouseAction::Up)
         } else {
             None

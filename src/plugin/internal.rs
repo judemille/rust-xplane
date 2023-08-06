@@ -1,12 +1,14 @@
-use std::os::raw::{c_char, c_int};
-use std::panic;
-use std::panic::AssertUnwindSafe;
-use std::ptr;
+use std::{
+    os::raw::{c_char, c_int, c_void},
+    panic,
+    panic::AssertUnwindSafe,
+    ptr,
+};
 
-use super::super::debugln;
-use super::super::internal::copy_to_c_buffer;
-
-use super::Plugin;
+use super::{
+    super::{debugln, internal::copy_to_c_buffer},
+    Plugin,
+};
 
 /// Information on a plugin
 pub struct PluginData<P> {
@@ -132,4 +134,15 @@ where
             data.panicked = true;
         }
     }
+}
+
+pub unsafe fn xplugin_receive_message<P>(
+    data: &mut PluginData<P>,
+    from: i32,
+    message: i32,
+    param: *mut c_void,
+) where
+    P: Plugin,
+{
+    (*data.plugin).receive_message(from, message, param);
 }

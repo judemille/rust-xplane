@@ -1,8 +1,12 @@
 #![deny(trivial_casts)]
+// Copyright (c) 2023 Julia DeMille
+// 
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 
 //! Bindings to the X-Plane plugin SDK
-
-extern crate xplm_sys;
 
 use std::ffi::CString;
 
@@ -34,6 +38,8 @@ pub mod flight_loop;
 pub mod geometry;
 /// User interface menus
 pub mod menu;
+/// Plugin messages
+pub mod message;
 /// Plugin creation and management
 pub mod plugin;
 /// Relatively low-level windows
@@ -53,9 +59,9 @@ pub fn debug<S: Into<String>>(message: S) {
 }
 
 /// Re-export the signature of XPLMDebugString as it is needed in the debug macros.
-/// By re-exporting we can avoid that users have to import xplm_sys into their plugin.
+/// By re-exporting we can avoid that users have to import xplane_sys into their plugin.
 #[doc(hidden)]
-pub use xplm_sys::XPLMDebugString;
+pub use xplane_sys::XPLMDebugString;
 
 /// Writes a message to the developer console and Log.txt file
 #[macro_export]
@@ -90,7 +96,7 @@ macro_rules! debugln {
 pub fn find_symbol<S: Into<String>>(name: S) -> *mut std::os::raw::c_void {
     use std::ptr;
     match std::ffi::CString::new(name.into()) {
-        Ok(name_c) => unsafe { xplm_sys::XPLMFindSymbol(name_c.as_ptr()) },
+        Ok(name_c) => unsafe { xplane_sys::XPLMFindSymbol(name_c.as_ptr()) },
         Err(_) => ptr::null_mut(),
     }
 }

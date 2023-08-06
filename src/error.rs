@@ -1,6 +1,6 @@
-use std::ffi::CStr;
-use std::os::raw::c_char;
-use xplm_sys::XPLMSetErrorCallback;
+use std::{ffi::CStr, os::raw::c_char};
+
+use xplane_sys::XPLMSetErrorCallback;
 
 /// The current handler
 static mut HANDLER: Option<fn(&str)> = None;

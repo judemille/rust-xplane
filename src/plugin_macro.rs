@@ -12,8 +12,8 @@
 macro_rules! xplane_plugin {
     ($plugin_type: ty) => {
         // The plugin
-        static mut PLUGIN: ::xplm::plugin::internal::PluginData<$plugin_type> =
-            ::xplm::plugin::internal::PluginData {
+        static mut PLUGIN: ::xplane::plugin::internal::PluginData<$plugin_type> =
+            ::xplane::plugin::internal::PluginData {
                 plugin: 0 as *mut _,
                 panicked: false,
             };
@@ -25,25 +25,25 @@ macro_rules! xplane_plugin {
             signature: *mut ::std::os::raw::c_char,
             description: *mut ::std::os::raw::c_char,
         ) -> ::std::os::raw::c_int {
-            ::xplm::plugin::internal::xplugin_start(&mut PLUGIN, name, signature, description)
+            ::xplane::plugin::internal::xplugin_start(&mut PLUGIN, name, signature, description)
         }
 
         #[allow(non_snake_case)]
         #[no_mangle]
         pub unsafe extern "C" fn XPluginStop() {
-            ::xplm::plugin::internal::xplugin_stop(&mut PLUGIN)
+            ::xplane::plugin::internal::xplugin_stop(&mut PLUGIN)
         }
 
         #[allow(non_snake_case)]
         #[no_mangle]
         pub unsafe extern "C" fn XPluginEnable() -> ::std::os::raw::c_int {
-            ::xplm::plugin::internal::xplugin_enable(&mut PLUGIN)
+            ::xplane::plugin::internal::xplugin_enable(&mut PLUGIN)
         }
 
         #[allow(non_snake_case)]
         #[no_mangle]
         pub unsafe extern "C" fn XPluginDisable() {
-            ::xplm::plugin::internal::xplugin_disable(&mut PLUGIN)
+            ::xplane::plugin::internal::xplugin_disable(&mut PLUGIN)
         }
 
         #[allow(non_snake_case)]

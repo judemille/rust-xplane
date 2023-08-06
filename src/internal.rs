@@ -1,6 +1,4 @@
-use std::ffi::CString;
-use std::os::raw::c_char;
-use std::ptr;
+use std::{ffi::CString, os::raw::c_char, ptr};
 
 /// Copies up to 256 bytes (including null termination) to
 /// the provided destination. If the provided source string is too long, it will be

@@ -10,11 +10,7 @@
 //! Foreign function interface utilities
 //!
 
-use std::iter;
-use std::os::raw::c_char;
-use std::str;
-use std::str::Utf8Error;
-use std::string::FromUtf8Error;
+use std::{iter, os::raw::c_char, str, str::Utf8Error, string::FromUtf8Error};
 
 /// A fixed-length array of characters that can be passed to C functions and converted into a
 /// String

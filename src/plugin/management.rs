@@ -1,15 +1,18 @@
-use std::ffi::{CStr, CString};
-use std::os::raw::*;
-use std::path::PathBuf;
-use std::ptr;
-use xplm_sys;
+use std::{
+    ffi::{CStr, CString},
+    os::raw::*,
+    path::PathBuf,
+    ptr,
+};
+
+use xplane_sys;
 
 /// Looks for a plugin with the provided signature and returns it if it exists
 pub fn plugin_with_signature(signature: &str) -> Option<Plugin> {
     match CString::new(signature) {
         Ok(signature) => {
-            let plugin_id = unsafe { xplm_sys::XPLMFindPluginBySignature(signature.as_ptr()) };
-            if plugin_id != xplm_sys::XPLM_NO_PLUGIN_ID {
+            let plugin_id = unsafe { xplane_sys::XPLMFindPluginBySignature(signature.as_ptr()) };
+            if plugin_id != xplane_sys::XPLM_NO_PLUGIN_ID {
                 Some(Plugin(plugin_id))
             } else {
                 None
@@ -21,10 +24,10 @@ pub fn plugin_with_signature(signature: &str) -> Option<Plugin> {
 
 /// Returns the plugin that is currently running
 pub fn this_plugin() -> Plugin {
-    let plugin_id = unsafe { xplm_sys::XPLMGetMyID() };
+    let plugin_id = unsafe { xplane_sys::XPLMGetMyID() };
     assert_ne!(
         plugin_id,
-        xplm_sys::XPLM_NO_PLUGIN_ID,
+        xplane_sys::XPLM_NO_PLUGIN_ID,
         "XPLMGetMyId() returned no plugin ID"
     );
     Plugin(plugin_id)
@@ -35,7 +38,7 @@ pub fn all_plugins() -> Plugins {
     Plugins {
         next: 0,
         // Subtract 1 because X-Plane is considered a plugin
-        count: unsafe { xplm_sys::XPLMCountPlugins() - 1 },
+        count: unsafe { xplane_sys::XPLMCountPlugins() - 1 },
     }
 }
 
@@ -53,10 +56,10 @@ impl Iterator for Plugins {
     type Item = Plugin;
     fn next(&mut self) -> Option<Self::Item> {
         if self.next < self.count {
-            let plugin = Plugin(unsafe { xplm_sys::XPLMGetNthPlugin(self.next) });
+            let plugin = Plugin(unsafe { xplane_sys::XPLMGetNthPlugin(self.next) });
             self.next += 1;
             // Skip past X-Plane
-            if plugin.0 == xplm_sys::XPLM_PLUGIN_XPLANE as xplm_sys::XPLMPluginID {
+            if plugin.0 == xplane_sys::XPLM_PLUGIN_XPLANE as xplane_sys::XPLMPluginID {
                 self.next()
             } else {
                 Some(plugin)
@@ -74,13 +77,13 @@ impl Iterator for Plugins {
 impl ExactSizeIterator for Plugins {}
 
 /// Another plugin running in X-Plane (or this plugin)
-pub struct Plugin(xplm_sys::XPLMPluginID);
+pub struct Plugin(xplane_sys::XPLMPluginID);
 
 impl Plugin {
     /// Returns the name of this plugin
     pub fn name(&self) -> String {
         read_to_buffer(|buffer| unsafe {
-            xplm_sys::XPLMGetPluginInfo(
+            xplane_sys::XPLMGetPluginInfo(
                 self.0,
                 buffer,
                 ptr::null_mut(),
@@ -92,7 +95,7 @@ impl Plugin {
     /// Returns the signature of this plugin
     pub fn signature(&self) -> String {
         read_to_buffer(|buffer| unsafe {
-            xplm_sys::XPLMGetPluginInfo(
+            xplane_sys::XPLMGetPluginInfo(
                 self.0,
                 ptr::null_mut(),
                 ptr::null_mut(),
@@ -104,7 +107,7 @@ impl Plugin {
     /// Returns the description of this plugin
     pub fn description(&self) -> String {
         read_to_buffer(|buffer| unsafe {
-            xplm_sys::XPLMGetPluginInfo(
+            xplane_sys::XPLMGetPluginInfo(
                 self.0,
                 ptr::null_mut(),
                 ptr::null_mut(),
@@ -116,7 +119,7 @@ impl Plugin {
     /// Returns the absolute path to this plugin
     pub fn path(&self) -> PathBuf {
         let os_path = read_to_buffer(|buffer| unsafe {
-            xplm_sys::XPLMGetPluginInfo(
+            xplane_sys::XPLMGetPluginInfo(
                 self.0,
                 ptr::null_mut(),
                 buffer,
@@ -129,18 +132,18 @@ impl Plugin {
 
     /// Returns true if this plugin is enabled
     pub fn enabled(&self) -> bool {
-        unsafe { xplm_sys::XPLMIsPluginEnabled(self.0) == 1 }
+        unsafe { xplane_sys::XPLMIsPluginEnabled(self.0) == 1 }
     }
 
     /// Enables or disables the plugin
     pub fn set_enabled(&self, enabled: bool) {
         if enabled {
             unsafe {
-                xplm_sys::XPLMEnablePlugin(self.0);
+                xplane_sys::XPLMEnablePlugin(self.0);
             }
         } else {
             unsafe {
-                xplm_sys::XPLMDisablePlugin(self.0);
+                xplane_sys::XPLMDisablePlugin(self.0);
             }
         }
     }

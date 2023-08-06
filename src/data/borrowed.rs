@@ -1,9 +1,13 @@
+use std::{
+    ffi::{CString, NulError},
+    marker::PhantomData,
+    os::raw::c_void,
+    ptr,
+};
+
+use xplane_sys::*;
+
 use super::{ArrayRead, ArrayReadWrite, DataRead, DataReadWrite, DataType, ReadOnly, ReadWrite};
-use std::ffi::{CString, NulError};
-use std::marker::PhantomData;
-use std::os::raw::c_void;
-use std::ptr;
-use xplm_sys::*;
 
 /// A dataref created by X-Plane or another plugin
 ///

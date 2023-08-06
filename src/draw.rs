@@ -1,5 +1,6 @@
-use std::os::raw::*;
-use xplm_sys;
+use std::os::raw::{c_int, c_void};
+
+use xplane_sys;
 
 /// A callback that can be called while X-Plane draws graphics
 pub trait DrawCallback: 'static {
@@ -25,7 +26,7 @@ pub struct Draw {
     /// The callback pointer (used when unregistering)
     callback_ptr: *mut c_void,
     /// The C callback (used when unregistering)
-    c_callback: xplm_sys::XPLMDrawCallback_f,
+    c_callback: xplane_sys::XPLMDrawCallback_f,
 }
 
 impl Draw {
@@ -35,7 +36,7 @@ impl Draw {
         let callback_box = Box::new(callback);
         let callback_ptr: *const _ = &*callback_box;
         let status = unsafe {
-            xplm_sys::XPLMRegisterDrawCallback(
+            xplane_sys::XPLMRegisterDrawCallback(
                 Some(draw_callback::<C>),
                 xplm_phase,
                 0,
@@ -60,7 +61,7 @@ impl Drop for Draw {
     fn drop(&mut self) {
         let phase = self.phase.to_xplm();
         unsafe {
-            xplm_sys::XPLMUnregisterDrawCallback(self.c_callback, phase, 0, self.callback_ptr);
+            xplane_sys::XPLMUnregisterDrawCallback(self.c_callback, phase, 0, self.callback_ptr);
         }
     }
 }
@@ -69,7 +70,7 @@ impl Drop for Draw {
 ///
 /// This is instantiated separately for each callback type.
 unsafe extern "C" fn draw_callback<C: DrawCallback>(
-    _phase: xplm_sys::XPLMDrawingPhase,
+    _phase: xplane_sys::XPLMDrawingPhase,
     _before: c_int,
     refcon: *mut c_void,
 ) -> c_int {
@@ -99,17 +100,17 @@ pub enum Phase {
 
 impl Phase {
     /// Converts this phase into an XPLMDrawingPhase and a 0 for after or 1 for before
-    fn to_xplm(&self) -> xplm_sys::XPLMDrawingPhase {
+    fn to_xplm(&self) -> xplane_sys::XPLMDrawingPhase {
         use self::Phase::*;
         let phase = match *self {
-            AfterPanel => xplm_sys::xplm_Phase_Panel,
-            AfterGauges => xplm_sys::xplm_Phase_Gauges,
-            AfterWindows => xplm_sys::xplm_Phase_Window,
-            AfterLocalMap2D => xplm_sys::xplm_Phase_LocalMap2D,
-            AfterLocalMap3D => xplm_sys::xplm_Phase_LocalMap3D,
-            AfterLocalMapProfile => xplm_sys::xplm_Phase_LocalMapProfile,
+            AfterPanel => xplane_sys::xplm_Phase_Panel,
+            AfterGauges => xplane_sys::xplm_Phase_Gauges,
+            AfterWindows => xplane_sys::xplm_Phase_Window,
+            AfterLocalMap2D => xplane_sys::xplm_Phase_LocalMap2D,
+            AfterLocalMap3D => xplane_sys::xplm_Phase_LocalMap3D,
+            AfterLocalMapProfile => xplane_sys::xplm_Phase_LocalMapProfile,
         };
-        phase as xplm_sys::XPLMDrawingPhase
+        phase as xplane_sys::XPLMDrawingPhase
     }
 }
 
@@ -147,7 +148,7 @@ pub struct GraphicsState {
 /// Sets the graphics state
 pub fn set_state(state: &GraphicsState) {
     unsafe {
-        xplm_sys::XPLMSetGraphicsState(
+        xplane_sys::XPLMSetGraphicsState(
             state.fog as i32,
             state.textures,
             state.lighting as i32,
@@ -164,7 +165,7 @@ pub fn set_state(state: &GraphicsState) {
 /// This function should be used instead of glBindTexture
 pub fn bind_texture(texture_number: i32, texture_id: i32) {
     unsafe {
-        xplm_sys::XPLMBindTexture2d(texture_number, texture_id);
+        xplane_sys::XPLMBindTexture2d(texture_number, texture_id);
     }
 }
 
@@ -181,7 +182,7 @@ pub fn generate_texture_numbers(numbers: &mut [i32]) {
         i32::max_value()
     };
     unsafe {
-        xplm_sys::XPLMGenerateTextureNumbers(numbers.as_mut_ptr(), count);
+        xplane_sys::XPLMGenerateTextureNumbers(numbers.as_mut_ptr(), count);
     }
 }
 

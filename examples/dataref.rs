@@ -1,9 +1,12 @@
-extern crate xplm;
-
-use xplm::data::borrowed::{DataRef, FindError};
-use xplm::data::{ArrayRead, DataRead, ReadOnly, ReadWrite, StringRead};
-use xplm::plugin::{Plugin, PluginInfo};
-use xplm::{debugln, xplane_plugin};
+use xplane::{
+    data::{
+        borrowed::{DataRef, FindError},
+        ArrayRead, DataRead, ReadOnly, ReadWrite, StringRead,
+    },
+    debugln,
+    plugin::{Plugin, PluginInfo},
+    xplane_plugin,
+};
 
 struct DataRefPlugin {
     has_joystick: DataRef<bool, ReadOnly>,

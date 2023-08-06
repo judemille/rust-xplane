@@ -1,11 +1,15 @@
+use std::{
+    cmp,
+    ffi::{CString, NulError},
+    i32,
+    marker::PhantomData,
+    os::raw::{c_int, c_void},
+    ptr,
+};
+
+use xplane_sys::*;
+
 use super::{Access, ArrayRead, ArrayReadWrite, DataRead, DataReadWrite, DataType, ReadOnly};
-use std::cmp;
-use std::ffi::{CString, NulError};
-use std::i32;
-use std::marker::PhantomData;
-use std::os::raw::{c_int, c_void};
-use std::ptr;
-use xplm_sys::*;
 
 /// A dataref owned by this plugin
 ///

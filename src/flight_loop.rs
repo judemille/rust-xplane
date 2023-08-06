@@ -10,7 +10,7 @@
 //! Closure handler:
 //!
 //! ```no_run
-//! use xplm::flight_loop::{FlightLoop, LoopState};
+//! use xplane::flight_loop::{FlightLoop, LoopState};
 //!
 //! let handler = |loop_state: &mut LoopState| {
 //!     println!("Flight loop callback running");
@@ -23,7 +23,7 @@
 //! Struct handler:
 //!
 //! ```no_run
-//! use xplm::flight_loop::{FlightLoop, FlightLoopCallback, LoopState};
+//! use xplane::flight_loop::{FlightLoop, FlightLoopCallback, LoopState};
 //!
 //! struct LoopHandler;
 //!
@@ -38,14 +38,14 @@
 //! ```
 //!
 
-use xplm_sys;
+use std::{
+    f32, fmt, mem,
+    ops::DerefMut,
+    os::raw::{c_float, c_int, c_void},
+    time::Duration,
+};
 
-use std::f32;
-use std::fmt;
-use std::mem;
-use std::ops::DerefMut;
-use std::os::raw::*;
-use std::time::Duration;
+use xplane_sys;
 
 /// Tracks a flight loop callback, which can be called by X-Plane periodically for calculations
 ///
@@ -65,13 +65,13 @@ impl FlightLoop {
         let mut data = Box::new(LoopData::new(callback));
         let data_ptr: *mut LoopData = data.deref_mut();
         // Create a flight loop
-        let mut config = xplm_sys::XPLMCreateFlightLoop_t {
-            structSize: mem::size_of::<xplm_sys::XPLMCreateFlightLoop_t>() as c_int,
-            phase: xplm_sys::xplm_FlightLoop_Phase_AfterFlightModel as i32,
+        let mut config = xplane_sys::XPLMCreateFlightLoop_t {
+            structSize: mem::size_of::<xplane_sys::XPLMCreateFlightLoop_t>() as c_int,
+            phase: xplane_sys::xplm_FlightLoop_Phase_AfterFlightModel as i32,
             callbackFunc: Some(flight_loop_callback::<C>),
             refcon: data_ptr as *mut c_void,
         };
-        data.loop_id = unsafe { Some(xplm_sys::XPLMCreateFlightLoop(&mut config)) };
+        data.loop_id = unsafe { Some(xplane_sys::XPLMCreateFlightLoop(&mut config)) };
         FlightLoop { data }
     }
 
@@ -110,7 +110,7 @@ struct LoopData {
     /// The loop result, or None if the loop has not been scheduled
     loop_result: Option<LoopResult>,
     /// The loop ID
-    loop_id: Option<xplm_sys::XPLMFlightLoopID>,
+    loop_id: Option<xplane_sys::XPLMFlightLoopID>,
     /// The callback (stored here but not used)
     callback: Box<dyn FlightLoopCallback>,
 }
@@ -137,7 +137,7 @@ impl LoopData {
 
     fn set_interval(&mut self, loop_result: LoopResult) {
         let loop_id = self.loop_id.expect("Loop ID not set");
-        unsafe { xplm_sys::XPLMScheduleFlightLoop(loop_id, loop_result.clone().into(), 1) };
+        unsafe { xplane_sys::XPLMScheduleFlightLoop(loop_id, loop_result.clone().into(), 1) };
         self.loop_result = Some(loop_result);
     }
 }
@@ -145,7 +145,7 @@ impl LoopData {
 impl Drop for LoopData {
     fn drop(&mut self) {
         if let Some(loop_id) = self.loop_id {
-            unsafe { xplm_sys::XPLMDestroyFlightLoop(loop_id) }
+            unsafe { xplane_sys::XPLMDestroyFlightLoop(loop_id) }
         }
     }
 }

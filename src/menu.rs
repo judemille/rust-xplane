@@ -1,10 +1,13 @@
-use std::cell::{Cell, RefCell};
-use std::ffi::{CString, NulError};
-use std::fmt;
-use std::os::raw::*;
-use std::ptr;
-use std::rc::Rc;
-use xplm_sys;
+use std::{
+    cell::{Cell, RefCell},
+    ffi::{CString, NulError},
+    fmt,
+    os::raw::{c_int, c_void},
+    ptr,
+    rc::Rc,
+};
+
+use xplane_sys;
 
 /// Something that can be added to a menu
 #[derive(Debug, Clone)]
@@ -21,7 +24,7 @@ pub enum Item {
 
 impl Item {
     /// Called when this item is added to a parent menu
-    fn add_to_menu(&self, parent_id: xplm_sys::XPLMMenuID) {
+    fn add_to_menu(&self, parent_id: xplane_sys::XPLMMenuID) {
         match *self {
             Item::Submenu(ref menu) => menu.add_to_menu(parent_id),
             // Pass the address of this Item as a reference for the callback
@@ -41,7 +44,7 @@ impl Item {
         }
     }
     /// Called when this item is removed from a parent menu
-    fn remove_from_menu(&self, parent_id: xplm_sys::XPLMMenuID, index_in_parent: c_int) {
+    fn remove_from_menu(&self, parent_id: xplane_sys::XPLMMenuID, index_in_parent: c_int) {
         match *self {
             Item::Submenu(ref menu) => menu.remove_from_menu(parent_id, index_in_parent),
             Item::Action(ref action) => action.remove_from_menu(parent_id, index_in_parent),
@@ -144,12 +147,12 @@ impl Menu {
 
     /// Adds this menu as a child of the plugins menu
     pub fn add_to_plugins_menu(&self) {
-        let plugins_menu = unsafe { xplm_sys::XPLMFindPluginsMenu() };
+        let plugins_menu = unsafe { xplane_sys::XPLMFindPluginsMenu() };
         self.add_to_menu(plugins_menu);
     }
     /// Removes this menu from the plugins menu
     pub fn remove_from_plugins_menu(&self) {
-        let plugins_menu = unsafe { xplm_sys::XPLMFindPluginsMenu() };
+        let plugins_menu = unsafe { xplane_sys::XPLMFindPluginsMenu() };
         if let MenuState::InMenu {
             id: _id,
             parent,
@@ -173,23 +176,23 @@ enum MenuState {
     /// parent is the menu ID of the parent menu.
     /// index_in_parent is the index of the activator in the parent menu
     InMenu {
-        id: xplm_sys::XPLMMenuID,
-        parent: xplm_sys::XPLMMenuID,
+        id: xplane_sys::XPLMMenuID,
+        parent: xplane_sys::XPLMMenuID,
         index_in_parent: c_int,
     },
 }
 
 impl Menu {
-    fn add_to_menu(&self, parent_id: xplm_sys::XPLMMenuID) {
+    fn add_to_menu(&self, parent_id: xplane_sys::XPLMMenuID) {
         if let MenuState::Free = self.state.get() {
             let name_c = CString::new(self.name()).unwrap();
             // A submenu requires a menu item to open it
             let index = unsafe {
-                xplm_sys::XPLMAppendMenuItem(parent_id, name_c.as_ptr(), ptr::null_mut(), 0)
+                xplane_sys::XPLMAppendMenuItem(parent_id, name_c.as_ptr(), ptr::null_mut(), 0)
             };
 
             let menu_id = unsafe {
-                xplm_sys::XPLMCreateMenu(
+                xplane_sys::XPLMCreateMenu(
                     name_c.as_ptr(),
                     parent_id,
                     index,
@@ -223,7 +226,7 @@ impl Menu {
         }
         self.state.set(state);
     }
-    fn remove_from_menu(&self, _parent_id: xplm_sys::XPLMMenuID, index_in_parent: c_int) {
+    fn remove_from_menu(&self, _parent_id: xplane_sys::XPLMMenuID, index_in_parent: c_int) {
         if let MenuState::InMenu {
             id,
             parent,
@@ -240,11 +243,11 @@ impl Menu {
                 }
             }
             unsafe {
-                xplm_sys::XPLMDestroyMenu(id);
+                xplane_sys::XPLMDestroyMenu(id);
             }
             // Destroy activator item
             unsafe {
-                xplm_sys::XPLMRemoveMenuItem(parent, index_in_parent as c_int);
+                xplane_sys::XPLMRemoveMenuItem(parent, index_in_parent as c_int);
             }
             self.state.set(MenuState::Free);
         }
@@ -271,17 +274,17 @@ impl Drop for Menu {
 pub struct Separator;
 
 impl Separator {
-    fn add_to_menu(&self, parent_id: xplm_sys::XPLMMenuID) {
+    fn add_to_menu(&self, parent_id: xplane_sys::XPLMMenuID) {
         // API note: XPLMAppendMenuItem returns the index of the appended item.
         // A menu separator also has an index and takes up a slot, but
         // XPLMAppendMenuSeparator does not return the index of the added separator.
-        unsafe { xplm_sys::XPLMAppendMenuSeparator(parent_id) }
+        unsafe { xplane_sys::XPLMAppendMenuSeparator(parent_id) }
     }
     fn update_index(&self, _index_in_parent: c_int) {
         // Nothing
     }
-    fn remove_from_menu(&self, parent_id: xplm_sys::XPLMMenuID, index_in_parent: c_int) {
-        unsafe { xplm_sys::XPLMRemoveMenuItem(parent_id, index_in_parent as c_int) }
+    fn remove_from_menu(&self, parent_id: xplane_sys::XPLMMenuID, index_in_parent: c_int) {
+        unsafe { xplane_sys::XPLMRemoveMenuItem(parent_id, index_in_parent as c_int) }
     }
 }
 
@@ -329,7 +332,7 @@ impl ActionItem {
         borrow.push_str(name);
         if let Some(in_menu) = self.in_menu.get() {
             unsafe {
-                xplm_sys::XPLMSetMenuItemName(
+                xplane_sys::XPLMSetMenuItemName(
                     in_menu.parent,
                     in_menu.index as c_int,
                     name_c.as_ptr(),
@@ -342,17 +345,17 @@ impl ActionItem {
 }
 
 impl ActionItem {
-    fn add_to_menu(&self, parent_id: xplm_sys::XPLMMenuID, enclosing_item: *const Item) {
+    fn add_to_menu(&self, parent_id: xplane_sys::XPLMMenuID, enclosing_item: *const Item) {
         let name_c = CString::new(self.name()).unwrap();
         let index = unsafe {
-            let index = xplm_sys::XPLMAppendMenuItem(
+            let index = xplane_sys::XPLMAppendMenuItem(
                 parent_id,
                 name_c.as_ptr(),
                 enclosing_item as *mut _,
                 0,
             );
             // Ensure item is not checkable
-            xplm_sys::XPLMCheckMenuItem(parent_id, index, xplm_sys::xplm_Menu_NoCheck as c_int);
+            xplane_sys::XPLMCheckMenuItem(parent_id, index, xplane_sys::xplm_Menu_NoCheck as c_int);
             index
         };
         self.in_menu.set(Some(InMenu::new(parent_id, index)));
@@ -364,8 +367,8 @@ impl ActionItem {
         }
         self.in_menu.set(in_menu);
     }
-    fn remove_from_menu(&self, parent_id: xplm_sys::XPLMMenuID, index_in_parent: c_int) {
-        unsafe { xplm_sys::XPLMRemoveMenuItem(parent_id, index_in_parent as c_int) }
+    fn remove_from_menu(&self, parent_id: xplane_sys::XPLMMenuID, index_in_parent: c_int) {
+        unsafe { xplane_sys::XPLMRemoveMenuItem(parent_id, index_in_parent as c_int) }
     }
 
     fn handle_click(&self) {
@@ -445,22 +448,23 @@ impl CheckItem {
         if let Some(in_menu) = self.in_menu.get() {
             // Update from X-Plane
             unsafe {
-                let mut check_state = xplm_sys::xplm_Menu_NoCheck as xplm_sys::XPLMMenuCheck;
-                xplm_sys::XPLMCheckMenuItemState(
+                let mut check_state = xplane_sys::xplm_Menu_NoCheck as xplane_sys::XPLMMenuCheck;
+                xplane_sys::XPLMCheckMenuItemState(
                     in_menu.parent,
                     in_menu.index as c_int,
                     &mut check_state,
                 );
-                if check_state == xplm_sys::xplm_Menu_NoCheck as xplm_sys::XPLMMenuCheck {
+                if check_state == xplane_sys::xplm_Menu_NoCheck as xplane_sys::XPLMMenuCheck {
                     self.checked.set(false);
-                } else if check_state == xplm_sys::xplm_Menu_Checked as xplm_sys::XPLMMenuCheck {
+                } else if check_state == xplane_sys::xplm_Menu_Checked as xplane_sys::XPLMMenuCheck
+                {
                     self.checked.set(true);
                 } else {
                     // Unexpected state, correct
-                    xplm_sys::XPLMCheckMenuItem(
+                    xplane_sys::XPLMCheckMenuItem(
                         in_menu.parent,
                         in_menu.index as c_int,
-                        xplm_sys::xplm_Menu_NoCheck as xplm_sys::XPLMMenuCheck,
+                        xplane_sys::xplm_Menu_NoCheck as xplane_sys::XPLMMenuCheck,
                     );
                     self.checked.set(false);
                 }
@@ -473,7 +477,7 @@ impl CheckItem {
         self.checked.set(checked);
         if let Some(in_menu) = self.in_menu.get() {
             unsafe {
-                xplm_sys::XPLMCheckMenuItem(
+                xplane_sys::XPLMCheckMenuItem(
                     in_menu.parent,
                     in_menu.index as c_int,
                     check_state(checked),
@@ -496,7 +500,7 @@ impl CheckItem {
         borrow.push_str(name);
         if let Some(in_menu) = self.in_menu.get() {
             unsafe {
-                xplm_sys::XPLMSetMenuItemName(
+                xplane_sys::XPLMSetMenuItemName(
                     in_menu.parent,
                     in_menu.index as c_int,
                     name_c.as_ptr(),
@@ -509,10 +513,10 @@ impl CheckItem {
 }
 
 impl CheckItem {
-    fn add_to_menu(&self, parent_id: xplm_sys::XPLMMenuID, enclosing_item: *const Item) {
+    fn add_to_menu(&self, parent_id: xplane_sys::XPLMMenuID, enclosing_item: *const Item) {
         let name_c = CString::new(self.name()).unwrap();
         let index = unsafe {
-            let index = xplm_sys::XPLMAppendMenuItem(
+            let index = xplane_sys::XPLMAppendMenuItem(
                 parent_id,
                 name_c.as_ptr(),
                 enclosing_item as *mut _,
@@ -520,7 +524,7 @@ impl CheckItem {
             );
             // Configure check
             let check_state = check_state(self.checked.get());
-            xplm_sys::XPLMCheckMenuItem(parent_id, index, check_state);
+            xplane_sys::XPLMCheckMenuItem(parent_id, index, check_state);
             index
         };
         self.in_menu.set(Some(InMenu::new(parent_id, index)));
@@ -532,8 +536,8 @@ impl CheckItem {
         }
         self.in_menu.set(in_menu);
     }
-    fn remove_from_menu(&self, parent_id: xplm_sys::XPLMMenuID, index_in_parent: c_int) {
-        unsafe { xplm_sys::XPLMRemoveMenuItem(parent_id, index_in_parent as c_int) }
+    fn remove_from_menu(&self, parent_id: xplane_sys::XPLMMenuID, index_in_parent: c_int) {
+        unsafe { xplane_sys::XPLMRemoveMenuItem(parent_id, index_in_parent as c_int) }
     }
 
     fn handle_click(&self) {
@@ -580,11 +584,11 @@ where
 }
 
 /// Maps true->checked and false->unchecked
-fn check_state(checked: bool) -> xplm_sys::XPLMMenuCheck {
+fn check_state(checked: bool) -> xplane_sys::XPLMMenuCheck {
     if checked {
-        xplm_sys::xplm_Menu_Checked as xplm_sys::XPLMMenuCheck
+        xplane_sys::xplm_Menu_Checked as xplane_sys::XPLMMenuCheck
     } else {
-        xplm_sys::xplm_Menu_Unchecked as xplm_sys::XPLMMenuCheck
+        xplane_sys::xplm_Menu_Unchecked as xplane_sys::XPLMMenuCheck
     }
 }
 
@@ -592,13 +596,13 @@ fn check_state(checked: bool) -> xplm_sys::XPLMMenuCheck {
 #[derive(Debug, Copy, Clone)]
 struct InMenu {
     /// The menu ID of the parent menu
-    pub parent: xplm_sys::XPLMMenuID,
+    pub parent: xplane_sys::XPLMMenuID,
     /// The index of this item in the parent menu
     pub index: c_int,
 }
 
 impl InMenu {
-    pub fn new(parent: xplm_sys::XPLMMenuID, index: c_int) -> Self {
+    pub fn new(parent: xplane_sys::XPLMMenuID, index: c_int) -> Self {
         InMenu { parent, index }
     }
 }
