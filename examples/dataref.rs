@@ -65,6 +65,9 @@ impl Plugin for DataRefPlugin {
             description: String::from("Tests the DataRef features of xplm"),
         }
     }
+    fn receive_message(&mut self, _from: i32, _message: i32, _param: *mut std::os::raw::c_void) {
+        
+    }
 }
 
 xplane_plugin!(DataRefPlugin);

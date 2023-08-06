@@ -22,6 +22,9 @@ impl Plugin for MinimalPlugin {
             description: String::from("A plugin written in Rust"),
         }
     }
+    fn receive_message(&mut self, _from: i32, _message: i32, _param: *mut std::os::raw::c_void) {
+        
+    }
 }
 
 xplane_plugin!(MinimalPlugin);

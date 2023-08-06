@@ -37,6 +37,9 @@ impl Plugin for MenuPlugin {
             description: String::from("A plugin written in Rust that creates menus and menu items"),
         }
     }
+    fn receive_message(&mut self, _from: i32, _message: i32, _param: *mut std::os::raw::c_void) {
+        
+    }
 }
 
 xplane_plugin!(MenuPlugin);
