@@ -7,7 +7,7 @@ use xplane::{
     debugln,
     menu::{ActionItem, CheckHandler, CheckItem, Menu, MenuClickHandler},
     plugin::{Plugin, PluginInfo},
-    xplane_plugin,
+    xplane_plugin, message::Message,
 };
 
 struct MenuPlugin {
@@ -37,7 +37,7 @@ impl Plugin for MenuPlugin {
             description: String::from("A plugin written in Rust that creates menus and menu items"),
         }
     }
-    fn receive_message(&mut self, _from: i32, _message: i32, _param: *mut std::os::raw::c_void) {
+    fn receive_message(&mut self, _from: i32, _message: Message, _param: *mut std::os::raw::c_void) {
         
     }
 }

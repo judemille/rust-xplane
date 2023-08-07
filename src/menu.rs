@@ -98,6 +98,7 @@ pub struct Menu {
     /// The items, separators, and submenus in this menu
     ///
     /// Each item is in a Box, to allow callbacks to reference it.
+    #[allow(clippy::vec_box)]
     children: RefCell<Vec<Box<Item>>>,
     /// The status of this menu
     state: Cell<MenuState>,
@@ -373,7 +374,7 @@ impl ActionItem {
 
     fn handle_click(&self) {
         let mut borrow = self.handler.borrow_mut();
-        borrow.item_clicked(&self);
+        borrow.item_clicked(self);
     }
 }
 

@@ -1,3 +1,9 @@
+// Copyright (c) 2023 Julia DeMille
+// 
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 use std::{
     os::raw::{c_char, c_int, c_void},
     panic,
@@ -138,11 +144,11 @@ where
 
 pub unsafe fn xplugin_receive_message<P>(
     data: &mut PluginData<P>,
-    from: i32,
-    message: i32,
+    from: c_int,
+    message: c_int,
     param: *mut c_void,
 ) where
     P: Plugin,
 {
-    (*data.plugin).receive_message(from, message, param);
+    (*data.plugin).receive_message(from, message.into(), param);
 }

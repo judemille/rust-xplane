@@ -10,9 +10,10 @@ use xplane_sys;
 use super::geometry::{Point, Rect};
 
 /// Cursor states that windows can apply
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum Cursor {
     /// X-Plane draws the default cursor
+    #[default]
     Default,
     /// X-Plane draws an arrow cursor (not any other cursor type)
     Arrow,
@@ -28,12 +29,6 @@ impl Cursor {
             Cursor::Arrow => xplane_sys::xplm_CursorArrow as xplane_sys::XPLMCursorStatus,
             Cursor::None => xplane_sys::xplm_CursorHidden as xplane_sys::XPLMCursorStatus,
         }
-    }
-}
-
-impl Default for Cursor {
-    fn default() -> Self {
-        Cursor::Default
     }
 }
 
@@ -97,7 +92,7 @@ impl Window {
     /// Creates a new window with the provided geometry and returns a reference to it
     ///
     /// The window is originally not visible.
-    pub fn new<R: Into<Rect<i32>>, D: WindowDelegate>(geometry: R, delegate: D) -> WindowRef {
+    pub fn create<R: Into<Rect<i32>>, D: WindowDelegate>(geometry: R, delegate: D) -> WindowRef {
         let geometry = geometry.into();
 
         let mut window_box = Box::new(Window {

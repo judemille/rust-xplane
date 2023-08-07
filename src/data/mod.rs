@@ -69,6 +69,12 @@ pub trait ArrayRead<T: ArrayType + ?Sized> {
     /// Returns the length of the data array
     fn len(&self) -> usize;
 
+    /// Returns whether the data array is empty.
+    /// /// Returns whether the data array is empty.
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Returns all values in this accessor as a Vec
     fn as_vec(&self) -> Vec<T::Element>
     where

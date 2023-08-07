@@ -6,6 +6,8 @@
 
 use std::os::raw::c_void;
 
+use crate::message::Message;
+
 /// Accessing and communicating with other plugins
 pub mod management;
 
@@ -49,5 +51,5 @@ pub trait Plugin: Sized {
     fn info(&self) -> PluginInfo;
 
     /// Called when a message is received.
-    fn receive_message(&mut self, from: i32, message: i32, param: *mut c_void);
+    fn receive_message(&mut self, from: i32, message: Message, param: *mut c_void);
 }

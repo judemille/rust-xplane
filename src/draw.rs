@@ -100,9 +100,9 @@ pub enum Phase {
 
 impl Phase {
     /// Converts this phase into an XPLMDrawingPhase and a 0 for after or 1 for before
-    fn to_xplm(&self) -> xplane_sys::XPLMDrawingPhase {
+    fn to_xplm(self) -> xplane_sys::XPLMDrawingPhase {
         use self::Phase::*;
-        let phase = match *self {
+        let phase = match self {
             AfterPanel => xplane_sys::xplm_Phase_Panel,
             AfterGauges => xplane_sys::xplm_Phase_Gauges,
             AfterWindows => xplane_sys::xplm_Phase_Window,
@@ -185,6 +185,7 @@ pub fn generate_texture_numbers(numbers: &mut [i32]) {
         xplane_sys::XPLMGenerateTextureNumbers(numbers.as_mut_ptr(), count);
     }
 }
+
 
 ///
 /// Generates a single texture number

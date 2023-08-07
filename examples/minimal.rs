@@ -1,7 +1,7 @@
 use xplane::{
     debugln,
     plugin::{Plugin, PluginInfo},
-    xplane_plugin,
+    xplane_plugin, message::Message,
 };
 
 struct MinimalPlugin;
@@ -22,7 +22,7 @@ impl Plugin for MinimalPlugin {
             description: String::from("A plugin written in Rust"),
         }
     }
-    fn receive_message(&mut self, _from: i32, _message: i32, _param: *mut std::os::raw::c_void) {
+    fn receive_message(&mut self, _from: i32, _message: Message, _param: *mut std::os::raw::c_void) {
         
     }
 }

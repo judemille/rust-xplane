@@ -10,33 +10,33 @@
 use num_enum::FromPrimitive;
 use xplane_sys::*;
 
-#[repr(u32)]
+#[repr(i32)]
 #[derive(Debug, Eq, PartialEq, FromPrimitive)]
 /// Inter-plugin message.
 pub enum Message {
-    PlaneCrashed = XPLM_MSG_PLANE_CRASHED,
-    PlaneLoaded = XPLM_MSG_PLANE_LOADED,
-    AirportLoaded = XPLM_MSG_AIRPORT_LOADED,
-    SceneryLoaded = XPLM_MSG_SCENERY_LOADED,
-    AirplaneCountChanged = XPLM_MSG_AIRPLANE_COUNT_CHANGED,
+    PlaneCrashed = XPLM_MSG_PLANE_CRASHED as i32,
+    PlaneLoaded = XPLM_MSG_PLANE_LOADED as i32,
+    AirportLoaded = XPLM_MSG_AIRPORT_LOADED as i32,
+    SceneryLoaded = XPLM_MSG_SCENERY_LOADED as i32,
+    AirplaneCountChanged = XPLM_MSG_AIRPLANE_COUNT_CHANGED as i32,
     #[cfg(feature = "XPLM200")]
-    PlaneUnloaded = XPLM_MSG_PLANE_UNLOADED,
+    PlaneUnloaded = XPLM_MSG_PLANE_UNLOADED as i32,
     #[cfg(feature = "XPLM210")]
-    WillWritePrefs = XPLM_MSG_WILL_WRITE_PREFS,
+    WillWritePrefs = XPLM_MSG_WILL_WRITE_PREFS as i32,
     #[cfg(feature = "XPLM210")]
-    LiveryLoaded = XPLM_MSG_LIVERY_LOADED,
+    LiveryLoaded = XPLM_MSG_LIVERY_LOADED as i32,
     #[cfg(feature = "XPLM301")]
-    EnteredVR = XPLM_MSG_ENTERED_VR,
+    EnteredVR = XPLM_MSG_ENTERED_VR as i32,
     #[cfg(feature = "XPLM301")]
-    ExitingVR = XPLM_MSG_EXITING_VR,
+    ExitingVR = XPLM_MSG_EXITING_VR as i32,
     #[cfg(feature = "XPLM303")]
-    ReleasePlanes = XPLM_MSG_RELEASE_PLANES,
+    ReleasePlanes = XPLM_MSG_RELEASE_PLANES as i32,
     #[cfg(feature = "XPLM400")]
-    FmodBankLoaded = XPLM_MSG_FMOD_BANK_LOADED,
+    FmodBankLoaded = XPLM_MSG_FMOD_BANK_LOADED as i32,
     #[cfg(feature = "XPLM400")]
-    FmodBankUnloading = XPLM_MSG_FMOD_BANK_UNLOADING,
+    FmodBankUnloading = XPLM_MSG_FMOD_BANK_UNLOADING as i32,
     #[cfg(feature = "XPLM400")]
-    DatarefsAdded = XPLM_MSG_DATAREFS_ADDED,
+    DatarefsAdded = XPLM_MSG_DATAREFS_ADDED as i32,
     #[num_enum(catch_all)]
-    UnknownMessage(u32),
+    UnknownMessage(i32),
 }
