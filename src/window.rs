@@ -1,3 +1,9 @@
+// Copyright (c) 2023 Julia DeMille
+// 
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 use std::{
     mem,
     ops::Deref,
@@ -6,6 +12,8 @@ use std::{
 };
 
 use xplane_sys;
+
+use crate::make_x;
 
 use super::geometry::{Point, Rect};
 
@@ -195,7 +203,11 @@ unsafe extern "C" fn window_key(
     if losing_focus == 0 {
         match KeyEvent::from_xplm(key, flags, virtual_key) {
             Ok(event) => (*window).delegate.keyboard_event(&*window, event),
-            Err(e) => super::debugln!("Invalid key event received: {:?}", e),
+            Err(e) => {
+                let mut x = make_x();
+                super::debugln!(x, "Invalid key event received: {:?}", e).unwrap()
+                // This should always be a valid string.
+            }
         }
     }
 }
@@ -543,7 +555,7 @@ pub struct KeyEvent {
     /// If the control key was pressed
     control_pressed: bool,
     /// If the option/alt key was pressed
-    option_pressed: bool,
+    alt_pressed: bool,
     /// If the shift key was pressed
     shift_pressed: bool,
 }
@@ -582,7 +594,7 @@ impl KeyEvent {
             key,
             action,
             control_pressed,
-            option_pressed,
+            alt_pressed: option_pressed,
             shift_pressed,
         })
     }
@@ -603,7 +615,7 @@ impl KeyEvent {
     }
     /// Returns true if the option/alt key was held down when the action occurred
     pub fn option_pressed(&self) -> bool {
-        self.option_pressed
+        self.alt_pressed
     }
     /// Returns true if a shift key was held down when the action occurred
     pub fn shift_pressed(&self) -> bool {

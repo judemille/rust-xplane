@@ -1,17 +1,31 @@
+// Copyright (c) 2023 Julia DeMille
+// 
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 use std::{
-    ffi::{CStr, CString},
+    cell::UnsafeCell,
+    ffi::{CStr, CString, NulError},
     fmt,
+    marker::PhantomData,
     os::raw::{c_char, c_int, c_void},
 };
 
 use xplane_sys;
 
 /// A feature provided by the SDK that this plugin is running in
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Feature {
     /// The name of this feature
     /// Invariant: this can be successfully converted into a CString
     name: String,
+    _phantom: PhantomData<&'static UnsafeCell<()>>, // Make this !Send + !Sync
+}
+
+/// Access struct for the Feature API.
+pub struct FeatureAPI<'a> {
+    pub(crate) _phantom: PhantomData<&'a mut &'a mut ()>, // Make this !Send + !Sync
 }
 
 impl Feature {
@@ -42,33 +56,32 @@ impl fmt::Display for Feature {
     }
 }
 
-/// Looks for a feature with the provided name and returns it if it exists
-pub fn find_feature<S: Into<String>>(name: S) -> Option<Feature> {
-    match CString::new(name.into()) {
-        Ok(name) => {
-            let has_feature = unsafe { xplane_sys::XPLMHasFeature(name.as_ptr()) };
-            if has_feature == 1 {
-                // Convert name back into a String
-                // Because the string was not modified, conversion will always work.
-                Some(Feature {
-                    name: name.into_string().unwrap(),
-                })
-            } else {
-                None
-            }
+impl<'a> FeatureAPI<'a> {
+    /// Looks for a feature with the provided name and returns it if it exists
+    pub fn find_feature<S: Into<String>>(&mut self, name: S) -> Result<Option<Feature>, NulError> {
+        let name = CString::new(name.into())?;
+        let has_feature = unsafe { xplane_sys::XPLMHasFeature(name.as_ptr()) };
+        if has_feature == 1 {
+            // Convert name back into a String
+            // Because the string was not modified, conversion will always work.
+            Ok(Some(Feature {
+                name: name.into_string().unwrap(),
+                _phantom: PhantomData
+            }))
+        } else {
+            Ok(None)
         }
-        Err(_) => None,
     }
-}
 
-/// Returns all features supported by the X-Plane plugin SDK
-pub fn all_features() -> Vec<Feature> {
-    let mut features = Vec::new();
-    let features_ptr: *mut _ = &mut features;
-    unsafe {
-        xplane_sys::XPLMEnumerateFeatures(Some(feature_callback), features_ptr as *mut c_void);
+    /// Returns all features supported by the X-Plane plugin SDK
+    pub fn all_features(&mut self) -> Vec<Feature> {
+        let mut features = Vec::new();
+        let features_ptr: *mut _ = &mut features;
+        unsafe {
+            xplane_sys::XPLMEnumerateFeatures(Some(feature_callback), features_ptr as *mut c_void);
+        }
+        features
     }
-    features
 }
 
 /// Interprets refcon as a pointer to a Vec<Feature>.
@@ -80,6 +93,7 @@ unsafe extern "C" fn feature_callback(feature: *const c_char, refcon: *mut c_voi
     if let Ok(name) = name.to_str() {
         let new_feature = Feature {
             name: name.to_owned(),
+            _phantom: PhantomData
         };
         (*features).push(new_feature);
     }

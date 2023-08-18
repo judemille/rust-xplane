@@ -1,16 +1,19 @@
 #![deny(trivial_casts)]
 #![warn(clippy::all)]
 // Copyright (c) 2023 Julia DeMille
-// 
+//
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-
-
 //! Bindings to the X-Plane plugin SDK
 
-use std::ffi::CString;
+use flight_loop::{FlightLoop, FlightLoopCallback};
+use std::{
+    ffi::{CString, NulError},
+    marker::PhantomData,
+};
+use xplane_sys::XPLMDebugString;
 
 /// FFI utilities
 mod ffi;
@@ -33,6 +36,8 @@ pub mod draw;
 pub mod error;
 /// SDK feature management
 pub mod feature;
+use feature::FeatureAPI;
+
 /// Flight loop callbacks
 // TODO: Flight loop implementation that supports SDK 1.0
 pub mod flight_loop;
@@ -47,34 +52,49 @@ pub mod plugin;
 /// Relatively low-level windows
 pub mod window;
 
-/// Writes a message to the developer console and Log.txt file
-///
-/// No line terminator is added.
-#[deprecated(note = "Please use the debug! or debugln! macro instead")]
-pub fn debug<S: Into<String>>(message: S) {
-    match CString::new(message.into()) {
-        Ok(message_c) => unsafe { XPLMDebugString(message_c.as_ptr()) },
-        Err(_) => unsafe {
-            XPLMDebugString("[xplm] Invalid debug message\n\0".as_ptr() as *const _)
-        },
+/// Access struct for all APIs in this crate. Intentionally neither [`Send`] nor [`Sync`]. Nothing in this crate is.
+pub struct XPAPI<'a> {
+    pub features: FeatureAPI<'a>,
+    // Name not decided on.
+    _phantom: PhantomData<&'a mut &'a mut ()>, // Make this !Send + !Sync.
+}
+
+impl<'a> XPAPI<'a> {
+    /// Write a string to the X-Plane log. You probably want [`debug!`] or [`debugln!`] instead.
+    pub fn debug_string(&mut self, s: String) -> Result<(), NulError> {
+        let s = CString::new(s)?;
+        unsafe {
+            XPLMDebugString(s.as_ptr());
+        }
+        Ok(())
+    }
+
+    /// Creates a new flight loop. The provided callback will not be
+    /// called until the loop is scheduled.
+    pub fn new_flight_loop<C>(&mut self, callback: C) -> FlightLoop<'a>
+    where
+        C: FlightLoopCallback,
+    {
+        FlightLoop::new(callback)
     }
 }
 
-/// Re-export the signature of XPLMDebugString as it is needed in the debug macros.
-/// By re-exporting we can avoid that users have to import xplane_sys into their plugin.
-#[doc(hidden)]
-pub use xplane_sys::XPLMDebugString;
+#[inline]
+fn make_x<'a>() -> XPAPI<'a> {
+    XPAPI {
+        features: FeatureAPI {
+            _phantom: PhantomData,
+        },
+        _phantom: PhantomData,
+    }
+}
 
 /// Writes a message to the developer console and Log.txt file
 #[macro_export]
 macro_rules! debug {
-    ($($arg:tt)*) => ({
+    ($x:ident, $($arg:tt)*) => ({
         let formatted_string: String = std::fmt::format(std::format_args!($($arg)*));
-        #[allow(unused_unsafe)] // Disable unnecessary unsafe block warning when embedded in unsafe function
-        match std::ffi::CString::new(formatted_string) {
-            Ok(c_str) => unsafe { $crate::XPLMDebugString(c_str.as_ptr()) },
-            Err(_) => unsafe { $crate::XPLMDebugString("[xplm] Invalid debug message\n\0".as_ptr() as *const _) }
-        }
+        $x.debug_string(formatted_string)
     });
 }
 
@@ -83,14 +103,10 @@ macro_rules! debug {
 #[allow(unused_unsafe)]
 macro_rules! debugln {
     () => ($crate::debug!("\n"));
-    ($($arg:tt)*) => ({
+    ($x:ident, $($arg:tt)*) => ({
         let mut formatted_string: String = std::fmt::format(std::format_args!($($arg)*));
         formatted_string.push_str("\n");
-        #[allow(unused_unsafe)] // Disable unnecessary unsafe block warning when embedded in unsafe function
-        match std::ffi::CString::new(formatted_string) {
-            Ok(c_str) => unsafe { $crate::XPLMDebugString(c_str.as_ptr()) },
-            Err(_) => unsafe { $crate::XPLMDebugString("[xplm] Invalid debug message\n\0".as_ptr() as *const _) }
-        }
+        $x.debug_string(formatted_string)
     });
 }
 

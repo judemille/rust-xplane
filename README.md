@@ -1,6 +1,6 @@
 # X-Plane plugin APIs for Rust
 
-[![Crates.io Version](https://img.shields.io/crates/v/xplm.svg)](https://crates.io/crates/xplane)
+[![Crates.io Version](https://img.shields.io/crates/v/xplane.svg)](https://crates.io/crates/xplane)
 [![Documentation](https://docs.rs/xplane/badge.svg)](https://docs.rs/xplane)
 [![License](https://img.shields.io/crates/l/xplane.svg)](https://github.com/judemille/rust-xplane#license)
 
@@ -10,6 +10,8 @@
 platforms. These interfaces should *mostly* be safe.
 
 This project is designed to support any 64-bit version of X-Plane, so long as the right feature gates are used.
+Testing is performed with XPLM400 and X-Plane 12, but an effort will be made to keep base API compatibility at XPLM210.
+Please open an issue if there is a compatibility regression.
 
 ## Status
 
@@ -59,7 +61,7 @@ xplane_plugin!(MinimalPlugin);
 ```
 
 ## Disclaimer
-The author of this project is a trans lesbian who unequivocally supports Ukraine, and opposes any and all human rights violations.  
+The author of this project is a trans lesbian who unequivocally supports Ukraine, and opposes any and all human rights violations.
 Do not use this project if you:
  * Do not unequivocally support the LGBTQ+ population, including transgender individuals.
  * Do not support Ukraine
@@ -69,8 +71,12 @@ I cannot stop you, but if anyone found to meet the above listed criteria interac
 
 ## License
 
-Licensed under the Mozilla Public License, version 2.0.  
+Licensed under the Mozilla Public License, version 2.0.
 Any code from commit `ba89d4234c5b4d7088a40b2bb8f537f72e1e2df3` and before is dual-licensed under the Apache License and the MIT License, at your choice.
+
+## Minimum Supported Rust Version
+This crate is only tested with the latest stable Rust version at the time of a given commit. Maybe it will work with earlier versions. Maybe it won't.
+No guarantees are made as to version compatibility before the current stable Rust compiler.
 
 ### Contribution
 

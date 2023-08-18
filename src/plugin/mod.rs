@@ -6,7 +6,7 @@
 
 use std::os::raw::c_void;
 
-use crate::message::Message;
+use crate::{message::Message, XPAPI};
 
 /// Accessing and communicating with other plugins
 pub mod management;
@@ -33,23 +33,21 @@ pub trait Plugin: Sized {
     /// Called when X-Plane loads this plugin
     ///
     /// On success, returns a plugin object
-    fn start() -> Result<Self, Self::Error>;
+    fn start(xpapi: &mut XPAPI) -> Result<Self, Self::Error>;
     /// Called when the plugin is enabled
     ///
     /// If this function returns an Err, the plugin will remain disabled.
     ///
     /// The default implementation returns Ok(()).
-    fn enable(&mut self) -> Result<(), Self::Error> {
-        Ok(())
-    }
+    fn enable(&mut self, xpapi: &mut XPAPI) -> Result<(), Self::Error>;
     /// Called when the plugin is disabled
     ///
-    /// The default implementation does nothing.
-    fn disable(&mut self) {}
+    /// The default implementation does nothing.;
+    fn disable(&mut self, xpapi: &mut XPAPI);
 
     /// Returns information on this plugin
     fn info(&self) -> PluginInfo;
 
     /// Called when a message is received.
-    fn receive_message(&mut self, from: i32, message: Message, param: *mut c_void);
+    fn receive_message(&mut self, xpapi: &mut XPAPI, from: i32, message: Message, param: *mut c_void);
 }

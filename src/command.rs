@@ -1,5 +1,6 @@
 use std::{
     ffi::{CString, NulError},
+    marker::PhantomData,
     ops::DerefMut,
     os::raw::{c_int, c_void},
 };
@@ -10,14 +11,23 @@ use xplane_sys::{
     XPLMCreateCommand, XPLMFindCommand, XPLMRegisterCommandHandler, XPLMUnregisterCommandHandler,
 };
 
-/// A command created by X-Plane or another plugin, that can be triggered
-#[derive(Debug)]
-pub struct Command {
-    /// The command reference
-    id: XPLMCommandRef,
+pub struct CommandAPI<'a> {
+    _phantom: PhantomData<&'a mut &'a mut ()>
 }
 
-impl Command {
+impl CommandAPI<'_> {
+
+}
+
+/// A command created by X-Plane or another plugin, that can be triggered
+#[derive(Debug)]
+pub struct Command<'a> {
+    /// The command reference
+    id: XPLMCommandRef,
+    _phantom: PhantomData<&'a mut &'a mut ()>,
+}
+
+impl<'a> Command<'a> {
     /// Finds a command
     ///
     /// The command should have already been created by X-Plane or another plugin.
@@ -25,7 +35,10 @@ impl Command {
         let name_c = CString::new(name)?;
         let command_ref = unsafe { XPLMFindCommand(name_c.as_ptr()) };
         if !command_ref.is_null() {
-            Ok(Command { id: command_ref })
+            Ok(Command {
+                id: command_ref,
+                _phantom: PhantomData,
+            })
         } else {
             Err(CommandFindError::NotFound)
         }
@@ -43,7 +56,7 @@ impl Command {
     /// Starts holding down this command
     ///
     /// The command will be released when the returned hold object is dropped.
-    pub fn hold_down(&mut self) -> CommandHold {
+    pub fn hold_down(&'a mut self) -> CommandHold<'a> {
         unsafe {
             XPLMCommandBegin(self.id);
         }
@@ -62,12 +75,14 @@ impl Command {
 ///
 /// The command will be released when this object is dropped.
 #[derive(Debug)]
-pub struct CommandHold<'a> {
+pub struct CommandHold<'a>
+{
     /// The command being held
-    command: &'a mut Command,
+    command: &'a mut Command<'a>,
 }
 
-impl<'a> Drop for CommandHold<'a> {
+impl<'a> Drop for CommandHold<'a>
+{
     fn drop(&mut self) {
         self.command.release();
     }

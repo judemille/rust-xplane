@@ -11,6 +11,10 @@ use std::{
     ptr,
 };
 
+
+
+use crate::make_x;
+
 use super::{
     super::{debugln, internal::copy_to_c_buffer},
     Plugin,
@@ -49,8 +53,9 @@ where
     P: Plugin,
 {
     let unwind = panic::catch_unwind(AssertUnwindSafe(|| {
-        super::super::internal::xplm_init();
-        match P::start() {
+        let mut x = make_x();
+        super::super::internal::xplm_init(&mut x);
+        match P::start(&mut x) {
             Ok(plugin) => {
                 let info = plugin.info();
                 copy_to_c_buffer(info.name, name);
@@ -62,7 +67,7 @@ where
                 1
             }
             Err(e) => {
-                debugln!("Plugin failed to start: {}", e);
+                debugln!(x, "Plugin failed to start: {}", e).unwrap(); // This string should be valid.
                 data.plugin = ptr::null_mut();
                 0
             }
@@ -94,7 +99,8 @@ where
             data.panicked = true;
         }
     } else {
-        debugln!("Warning: A plugin that panicked cannot be stopped. It may leak resources.");
+        let mut x = make_x();
+        debugln!(x, "Warning: A plugin that panicked cannot be stopped. It may leak resources.").unwrap(); // This string should be valid.
     }
 }
 
@@ -106,10 +112,11 @@ where
     P: Plugin,
 {
     if !data.panicked {
-        let unwind = panic::catch_unwind(AssertUnwindSafe(|| match (*data.plugin).enable() {
+        let mut x = make_x();
+        let unwind = panic::catch_unwind(AssertUnwindSafe(|| match (*data.plugin).enable(&mut x) {
             Ok(_) => 1,
             Err(e) => {
-                debugln!("Plugin failed to enable: {}", e);
+                debugln!(x, "Plugin failed to enable: {}", e).unwrap(); // This string should be valid.
                 0
             }
         }));
@@ -132,8 +139,9 @@ where
     P: Plugin,
 {
     if !data.panicked {
+        let mut x = make_x();
         let unwind = panic::catch_unwind(AssertUnwindSafe(|| {
-            (*data.plugin).disable();
+            (*data.plugin).disable(&mut x);
         }));
         if unwind.is_err() {
             eprintln!("Panic in XPluginDisable");
@@ -150,5 +158,6 @@ pub unsafe fn xplugin_receive_message<P>(
 ) where
     P: Plugin,
 {
-    (*data.plugin).receive_message(from, message.into(), param);
+    let mut x = make_x();
+    (*data.plugin).receive_message(&mut x, from, message.into(), param);
 }

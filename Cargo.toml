@@ -19,8 +19,7 @@ XPLM400 = ["XPLM303", "xplane-sys/XPLM400"]
 XPLM303 = ["XPLM301", "xplane-sys/XPLM303"]
 XPLM301 = ["XPLM300", "xplane-sys/XPLM301"]
 XPLM300 = ["XPLM210", "xplane-sys/XPLM300"]
-XPLM210 = ["XPLM200", "xplane-sys/XPLM210"]
-XPLM200 = ["xplane-sys/XPLM200"]
+XPLM210 = ["xplane-sys/XPLM210"]
 
 [profile.release]
 lto = true

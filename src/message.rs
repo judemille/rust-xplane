@@ -7,11 +7,11 @@
 
 #![allow(non_upper_case_globals)] // Some weirdness from the proc-macro.
 
-use num_enum::FromPrimitive;
+use num_enum::{FromPrimitive, IntoPrimitive};
 use xplane_sys::*;
 
 #[repr(i32)]
-#[derive(Debug, Eq, PartialEq, FromPrimitive)]
+#[derive(Debug, Eq, PartialEq, FromPrimitive, IntoPrimitive)]
 /// Inter-plugin message.
 pub enum Message {
     PlaneCrashed = XPLM_MSG_PLANE_CRASHED as i32,

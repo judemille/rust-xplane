@@ -1,4 +1,12 @@
+// Copyright (c) 2023 Julia DeMille
+// 
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 use std::{ffi::CString, os::raw::c_char, ptr};
+
+use crate::XPAPI;
 
 /// Copies up to 256 bytes (including null termination) to
 /// the provided destination. If the provided source string is too long, it will be
@@ -13,6 +21,6 @@ pub unsafe fn copy_to_c_buffer(mut src: String, dest: *mut c_char) {
 }
 
 /// Performs initialization required for the XPLM crate to work correctly
-pub fn xplm_init() {
-    super::paths::path_init();
+pub fn xplm_init(x: &mut XPAPI) {
+    super::paths::path_init(x);
 }

@@ -20,6 +20,7 @@ pub struct StringBuffer {
     bytes: Vec<u8>,
 }
 
+// Why is dead code allowed here?
 #[allow(dead_code)]
 impl StringBuffer {
     /// Creates a new StringBuffer with the provided length in bytes. All bytes in the string are
