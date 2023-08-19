@@ -1,3 +1,9 @@
+// Copyright (c) 2023 Julia DeMille
+// 
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 //! # Flight loop callbacks
 //!
 //! X-Plane can call plugin code at timed intervals or when it runs its flight model.
@@ -49,20 +55,21 @@ use std::{
 
 use xplane_sys;
 
-use crate::{XPAPI, make_x};
+use crate::{XPAPI, make_x, NoSendSync};
 
 /// Tracks a flight loop callback, which can be called by X-Plane periodically for calculations
 ///
 #[derive(Debug)]
-pub struct FlightLoop<'a> {
+pub struct FlightLoop<'a, C> where C: FlightLoopCallback {
     /// The loop data, allocated in a Box
-    data: Box<LoopData<'a>>,
+    data: Box<LoopData<'a, C>>,
 }
 
-impl<'a> FlightLoop<'a> {
-    pub(crate) fn new<C: FlightLoopCallback>(callback: C) -> Self {
+impl<'a, C> FlightLoop<'a, C>
+where C: FlightLoopCallback {
+    pub(crate) fn new(callback: C) -> Self {
         let mut data = Box::new(LoopData::new(callback));
-        let data_ptr: *mut LoopData = data.deref_mut();
+        let data_ptr: *mut LoopData<C> = data.deref_mut();
         // Create a flight loop
         let mut config = xplane_sys::XPLMCreateFlightLoop_t {
             structSize: mem::size_of::<xplane_sys::XPLMCreateFlightLoop_t>() as c_int,
@@ -105,17 +112,18 @@ impl<'a> FlightLoop<'a> {
 }
 
 /// Data stored as part of a FlightLoop and used as a refcon
-struct LoopData<'a> {
+struct LoopData<'a, C> where C: FlightLoopCallback {
     /// The loop result, or None if the loop has not been scheduled
     loop_result: Option<LoopResult>,
     /// The loop ID
     loop_id: Option<xplane_sys::XPLMFlightLoopID>,
     /// The callback (stored here but not used)
-    callback: Box<dyn FlightLoopCallback>,
-    _phantom: PhantomData<&'a mut &'a mut ()>,
+    callback: Box<C>,
+    _phantom: NoSendSync<'a>,
 }
 
-impl<'a> fmt::Debug for LoopData<'a> {
+impl<'a, C> fmt::Debug for LoopData<'a, C>
+where C: FlightLoopCallback {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("LoopData")
             .field("loop_result", &self.loop_result)
@@ -125,9 +133,10 @@ impl<'a> fmt::Debug for LoopData<'a> {
     }
 }
 
-impl<'a> LoopData<'a> {
+impl<'a, C> LoopData<'a, C>
+where C: FlightLoopCallback {
     /// Creates a new LoopData with a callback
-    pub(crate) fn new<C: FlightLoopCallback>(callback: C) -> Self {
+    pub(crate) fn new(callback: C) -> Self {
         LoopData {
             loop_result: None,
             loop_id: None,
@@ -143,7 +152,8 @@ impl<'a> LoopData<'a> {
     }
 }
 
-impl<'a> Drop for LoopData<'a> {
+impl<'a, C> Drop for LoopData<'a, C>
+where C: FlightLoopCallback {
     fn drop(&mut self) {
         if let Some(loop_id) = self.loop_id {
             unsafe { xplane_sys::XPLMDestroyFlightLoop(loop_id) }
@@ -256,24 +266,17 @@ unsafe extern "C" fn flight_loop_callback<C: FlightLoopCallback>(
     refcon: *mut c_void,
 ) -> c_float {
     // Get the loop data
-    let loop_data = refcon as *mut LoopData;
+    let loop_data = refcon as *mut LoopData<C>;
     // Create a state
     let mut state = LoopState {
-        since_call: secs_to_duration(since_last_call),
-        since_loop: secs_to_duration(since_loop),
+        since_call: Duration::from_secs_f32(since_last_call),
+        since_loop: Duration::from_secs_f32(since_loop),
         counter,
         result: (*loop_data).loop_result.as_mut().unwrap(),
     };
-    let cb: &mut dyn FlightLoopCallback = (*loop_data).callback.as_mut();
     let mut x = make_x();
-    (*cb).flight_loop(&mut x, &mut state);
+    (*loop_data).callback.flight_loop(&mut x, &mut state);
 
     // Return the next loop time
     f32::from(state.result.clone())
-}
-
-fn secs_to_duration(time: f32) -> Duration {
-    let seconds = time.trunc() as u64;
-    let nanoseconds = (time.fract() * 1e9_f32) as u32;
-    Duration::new(seconds, nanoseconds)
 }

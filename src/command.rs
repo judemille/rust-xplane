@@ -1,3 +1,9 @@
+// Copyright (c) 2023 Julia DeMille
+// 
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 use std::{
     ffi::{CString, NulError},
     marker::PhantomData,
@@ -11,8 +17,10 @@ use xplane_sys::{
     XPLMCreateCommand, XPLMFindCommand, XPLMRegisterCommandHandler, XPLMUnregisterCommandHandler,
 };
 
+use crate::NoSendSync;
+
 pub struct CommandAPI<'a> {
-    _phantom: PhantomData<&'a mut &'a mut ()>
+    _phantom: NoSendSync<'a>
 }
 
 impl CommandAPI<'_> {
@@ -24,7 +32,7 @@ impl CommandAPI<'_> {
 pub struct Command<'a> {
     /// The command reference
     id: XPLMCommandRef,
-    _phantom: PhantomData<&'a mut &'a mut ()>,
+    _phantom: NoSendSync<'a>,
 }
 
 impl<'a> Command<'a> {

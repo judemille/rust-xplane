@@ -14,6 +14,8 @@ use std::{
 
 use xplane_sys;
 
+use crate::NoSendSync;
+
 /// A feature provided by the SDK that this plugin is running in
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Feature {
@@ -25,7 +27,7 @@ pub struct Feature {
 
 /// Access struct for the Feature API.
 pub struct FeatureAPI<'a> {
-    pub(crate) _phantom: PhantomData<&'a mut &'a mut ()>, // Make this !Send + !Sync
+    pub(crate) _phantom: NoSendSync<'a>, // Make this !Send + !Sync
 }
 
 impl Feature {

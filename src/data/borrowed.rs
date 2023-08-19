@@ -18,9 +18,9 @@ pub struct DataRef<T: ?Sized, A = ReadOnly> {
     /// The dataref handle
     id: XPLMDataRef,
     /// Type phantom data
-    type_phantom: PhantomData<T>,
+    _type_phantom: PhantomData<T>,
     /// Data access phantom data
-    access_phantom: PhantomData<A>,
+    _access_phantom: PhantomData<A>,
 }
 
 impl<T: DataType + ?Sized> DataRef<T, ReadOnly> {
@@ -40,8 +40,8 @@ impl<T: DataType + ?Sized> DataRef<T, ReadOnly> {
         if actual_type & expected_type != 0 {
             Ok(DataRef {
                 id: dataref,
-                type_phantom: PhantomData,
-                access_phantom: PhantomData,
+                _type_phantom: PhantomData,
+                _access_phantom: PhantomData,
             })
         } else {
             Err(FindError::WrongType)
@@ -56,8 +56,8 @@ impl<T: DataType + ?Sized> DataRef<T, ReadOnly> {
         if writable {
             Ok(DataRef {
                 id: self.id,
-                type_phantom: PhantomData,
-                access_phantom: PhantomData,
+                _type_phantom: PhantomData,
+                _access_phantom: PhantomData,
             })
         } else {
             Err(FindError::NotWritable)

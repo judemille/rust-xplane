@@ -52,11 +52,13 @@ pub mod plugin;
 /// Relatively low-level windows
 pub mod window;
 
+type NoSendSync<'a> = PhantomData<&'a mut &'a mut ()>;
+
 /// Access struct for all APIs in this crate. Intentionally neither [`Send`] nor [`Sync`]. Nothing in this crate is.
 pub struct XPAPI<'a> {
     pub features: FeatureAPI<'a>,
     // Name not decided on.
-    _phantom: PhantomData<&'a mut &'a mut ()>, // Make this !Send + !Sync.
+    _phantom: NoSendSync<'a>, // Make this !Send + !Sync.
 }
 
 impl<'a> XPAPI<'a> {
@@ -71,7 +73,7 @@ impl<'a> XPAPI<'a> {
 
     /// Creates a new flight loop. The provided callback will not be
     /// called until the loop is scheduled.
-    pub fn new_flight_loop<C>(&mut self, callback: C) -> FlightLoop<'a>
+    pub fn new_flight_loop<C>(&mut self, callback: C) -> FlightLoop<'a, C>
     where
         C: FlightLoopCallback,
     {
