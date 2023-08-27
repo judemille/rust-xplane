@@ -1,5 +1,5 @@
 // Copyright (c) 2023 Julia DeMille
-// 
+//
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -55,18 +55,23 @@ use std::{
 
 use xplane_sys;
 
-use crate::{XPAPI, make_x, NoSendSync};
+use crate::{make_x, NoSendSync, XPAPI};
 
 /// Tracks a flight loop callback, which can be called by X-Plane periodically for calculations
 ///
 #[derive(Debug)]
-pub struct FlightLoop<'a, C> where C: FlightLoopCallback {
+pub struct FlightLoop<C>
+where
+    C: FlightLoopCallback,
+{
     /// The loop data, allocated in a Box
-    data: Box<LoopData<'a, C>>,
+    data: Box<LoopData<C>>,
 }
 
-impl<'a, C> FlightLoop<'a, C>
-where C: FlightLoopCallback {
+impl<C> FlightLoop<C>
+where
+    C: FlightLoopCallback,
+{
     pub(crate) fn new(callback: C) -> Self {
         let mut data = Box::new(LoopData::new(callback));
         let data_ptr: *mut LoopData<C> = data.deref_mut();
@@ -112,18 +117,23 @@ where C: FlightLoopCallback {
 }
 
 /// Data stored as part of a FlightLoop and used as a refcon
-struct LoopData<'a, C> where C: FlightLoopCallback {
+struct LoopData<C>
+where
+    C: FlightLoopCallback,
+{
     /// The loop result, or None if the loop has not been scheduled
     loop_result: Option<LoopResult>,
     /// The loop ID
     loop_id: Option<xplane_sys::XPLMFlightLoopID>,
     /// The callback (stored here but not used)
     callback: Box<C>,
-    _phantom: NoSendSync<'a>,
+    _phantom: NoSendSync,
 }
 
-impl<'a, C> fmt::Debug for LoopData<'a, C>
-where C: FlightLoopCallback {
+impl<C> fmt::Debug for LoopData<C>
+where
+    C: FlightLoopCallback,
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("LoopData")
             .field("loop_result", &self.loop_result)
@@ -133,8 +143,10 @@ where C: FlightLoopCallback {
     }
 }
 
-impl<'a, C> LoopData<'a, C>
-where C: FlightLoopCallback {
+impl<C> LoopData<C>
+where
+    C: FlightLoopCallback,
+{
     /// Creates a new LoopData with a callback
     pub(crate) fn new(callback: C) -> Self {
         LoopData {
@@ -152,8 +164,10 @@ where C: FlightLoopCallback {
     }
 }
 
-impl<'a, C> Drop for LoopData<'a, C>
-where C: FlightLoopCallback {
+impl<C> Drop for LoopData<C>
+where
+    C: FlightLoopCallback,
+{
     fn drop(&mut self) {
         if let Some(loop_id) = self.loop_id {
             unsafe { xplane_sys::XPLMDestroyFlightLoop(loop_id) }

@@ -1,5 +1,5 @@
 // Copyright (c) 2023 Julia DeMille
-// 
+//
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -19,23 +19,21 @@ use xplane_sys::{
 
 use crate::NoSendSync;
 
-pub struct CommandAPI<'a> {
-    _phantom: NoSendSync<'a>
+pub struct CommandAPI {
+    _phantom: NoSendSync,
 }
 
-impl CommandAPI<'_> {
-
-}
+impl CommandAPI {}
 
 /// A command created by X-Plane or another plugin, that can be triggered
 #[derive(Debug)]
-pub struct Command<'a> {
+pub struct Command {
     /// The command reference
     id: XPLMCommandRef,
-    _phantom: NoSendSync<'a>,
+    _phantom: NoSendSync,
 }
 
-impl<'a> Command<'a> {
+impl Command {
     /// Finds a command
     ///
     /// The command should have already been created by X-Plane or another plugin.
@@ -64,7 +62,7 @@ impl<'a> Command<'a> {
     /// Starts holding down this command
     ///
     /// The command will be released when the returned hold object is dropped.
-    pub fn hold_down(&'a mut self) -> CommandHold<'a> {
+    pub fn hold_down<'a>(&'a mut self) -> CommandHold<'a> {
         unsafe {
             XPLMCommandBegin(self.id);
         }
@@ -83,14 +81,12 @@ impl<'a> Command<'a> {
 ///
 /// The command will be released when this object is dropped.
 #[derive(Debug)]
-pub struct CommandHold<'a>
-{
+pub struct CommandHold<'a> {
     /// The command being held
-    command: &'a mut Command<'a>,
+    command: &'a mut Command,
 }
 
-impl<'a> Drop for CommandHold<'a>
-{
+impl<'a> Drop for CommandHold<'a> {
     fn drop(&mut self) {
         self.command.release();
     }

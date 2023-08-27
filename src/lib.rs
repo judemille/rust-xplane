@@ -43,6 +43,9 @@ use feature::FeatureAPI;
 pub mod flight_loop;
 /// 2D user interface geometry
 pub mod geometry;
+/// Access handles for state data.
+mod state;
+pub use state::StateData;
 /// User interface menus
 pub mod menu;
 /// Plugin messages
@@ -52,16 +55,16 @@ pub mod plugin;
 /// Relatively low-level windows
 pub mod window;
 
-type NoSendSync<'a> = PhantomData<&'a mut &'a mut ()>;
+type NoSendSync = PhantomData<*mut ()>;
 
 /// Access struct for all APIs in this crate. Intentionally neither [`Send`] nor [`Sync`]. Nothing in this crate is.
-pub struct XPAPI<'a> {
-    pub features: FeatureAPI<'a>,
+pub struct XPAPI {
     // Name not decided on.
-    _phantom: NoSendSync<'a>, // Make this !Send + !Sync.
+    pub features: FeatureAPI,
+    _phantom: NoSendSync, // Make this !Send + !Sync.
 }
 
-impl<'a> XPAPI<'a> {
+impl XPAPI {
     /// Write a string to the X-Plane log. You probably want [`debug!`] or [`debugln!`] instead.
     pub fn debug_string(&mut self, s: String) -> Result<(), NulError> {
         let s = CString::new(s)?;
@@ -71,9 +74,17 @@ impl<'a> XPAPI<'a> {
         Ok(())
     }
 
+    /// Get a handle to mutable state data.
+    pub fn with_handle<T, U, V>(&mut self, sd: &mut StateData<T>, cb: U) -> V
+    where
+        U: FnOnce(&mut T) -> V,
+    {
+        sd.with_handle(cb)
+    }
+
     /// Creates a new flight loop. The provided callback will not be
     /// called until the loop is scheduled.
-    pub fn new_flight_loop<C>(&mut self, callback: C) -> FlightLoop<'a, C>
+    pub fn new_flight_loop<C>(&mut self, callback: C) -> FlightLoop<C>
     where
         C: FlightLoopCallback,
     {
@@ -82,7 +93,7 @@ impl<'a> XPAPI<'a> {
 }
 
 #[inline]
-fn make_x<'a>() -> XPAPI<'a> {
+fn make_x() -> XPAPI {
     XPAPI {
         features: FeatureAPI {
             _phantom: PhantomData,

@@ -51,7 +51,7 @@ impl<T: DataType + ?Sized> DataRef<T, ReadOnly> {
     /// Makes this dataref writable
     ///
     /// Returns an error if the dataref cannot be written.
-    pub fn writeable(self) -> Result<DataRef<T, ReadWrite>, FindError> {
+    pub fn writeable(self) -> Result<DataRef<T, ReadWrite>, Self> {
         let writable = unsafe { XPLMCanWriteDataRef(self.id) == 1 };
         if writable {
             Ok(DataRef {
@@ -60,7 +60,7 @@ impl<T: DataType + ?Sized> DataRef<T, ReadOnly> {
                 _access_phantom: PhantomData,
             })
         } else {
-            Err(FindError::NotWritable)
+            Err(self)
         }
     }
 }

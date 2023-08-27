@@ -1,5 +1,5 @@
 // Copyright (c) 2023 Julia DeMille
-// 
+//
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -26,8 +26,8 @@ pub struct Feature {
 }
 
 /// Access struct for the Feature API.
-pub struct FeatureAPI<'a> {
-    pub(crate) _phantom: NoSendSync<'a>, // Make this !Send + !Sync
+pub struct FeatureAPI {
+    pub(crate) _phantom: NoSendSync, // Make this !Send + !Sync
 }
 
 impl Feature {
@@ -58,7 +58,7 @@ impl fmt::Display for Feature {
     }
 }
 
-impl<'a> FeatureAPI<'a> {
+impl FeatureAPI {
     /// Looks for a feature with the provided name and returns it if it exists
     pub fn find_feature<S: Into<String>>(&mut self, name: S) -> Result<Option<Feature>, NulError> {
         let name = CString::new(name.into())?;
@@ -68,7 +68,7 @@ impl<'a> FeatureAPI<'a> {
             // Because the string was not modified, conversion will always work.
             Ok(Some(Feature {
                 name: name.into_string().unwrap(),
-                _phantom: PhantomData
+                _phantom: PhantomData,
             }))
         } else {
             Ok(None)
@@ -95,7 +95,7 @@ unsafe extern "C" fn feature_callback(feature: *const c_char, refcon: *mut c_voi
     if let Ok(name) = name.to_str() {
         let new_feature = Feature {
             name: name.to_owned(),
-            _phantom: PhantomData
+            _phantom: PhantomData,
         };
         (*features).push(new_feature);
     }

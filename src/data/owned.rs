@@ -29,15 +29,15 @@ pub struct OwnedData<T: DataType + ?Sized, A = ReadOnly> {
 
 impl<T: DataType + ?Sized, A: Access> OwnedData<T, A> {
     /// Creates a new dataref with the provided name containing the default value of T
-    pub fn create(name: &str) -> Result<Self, CreateError>
+    pub fn new(name: &str) -> Result<Self, CreateError>
     where
         T: Default,
     {
-        Self::create_with_value(name, &T::default())
+        Self::new_with_value(name, &T::default())
     }
 
     /// Creates a new dataref with the provided name and value
-    pub fn create_with_value(name: &str, value: &T) -> Result<Self, CreateError> {
+    pub fn new_with_value(name: &str, value: &T) -> Result<Self, CreateError> {
         let name_c = CString::new(name)?;
 
         let existing = unsafe { XPLMFindDataRef(name_c.as_ptr()) };

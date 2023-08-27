@@ -186,7 +186,6 @@ pub fn generate_texture_numbers(numbers: &mut [i32]) {
     }
 }
 
-
 ///
 /// Generates a single texture number
 ///

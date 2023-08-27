@@ -12,7 +12,8 @@ edition = "2021"
 [dependencies]
 xplane-sys = "4.0.101"
 thiserror = "1.0.24"
-num_enum = "0.6"
+num_enum = "0.7"
+ahash = "0.8"
 
 [features]
 XPLM400 = ["XPLM303", "xplane-sys/XPLM400"]
