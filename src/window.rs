@@ -29,8 +29,9 @@ pub enum Cursor {
     None,
 }
 
+#[allow(clippy::cast_possible_wrap)]
 impl Cursor {
-    /// Converts this cursor into an XPLMCursorStatus
+    /// Converts this cursor into an `XPLMCursorStatus`
     fn as_xplm(&self) -> xplane_sys::XPLMCursorStatus {
         match *self {
             Cursor::Default => xplane_sys::xplm_CursorDefault as xplane_sys::XPLMCursorStatus,
@@ -81,7 +82,7 @@ pub struct WindowRef {
 impl Deref for WindowRef {
     type Target = Window;
     fn deref(&self) -> &Self::Target {
-        self.window.deref()
+        &self.window
     }
 }
 
@@ -109,6 +110,7 @@ impl Window {
         });
         let window_ptr: *mut Window = &mut *window_box;
 
+        #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
         let mut window_info = xplane_sys::XPLMCreateWindow_t {
             structSize: mem::size_of::<xplane_sys::XPLMCreateWindow_t>() as _,
             left: geometry.left(),
@@ -121,7 +123,7 @@ impl Window {
             handleKeyFunc: Some(window_key),
             handleCursorFunc: Some(window_cursor),
             handleMouseWheelFunc: Some(window_scroll),
-            refcon: window_ptr as *mut _,
+            refcon: window_ptr.cast(),
             decorateAsFloatingWindow: 0,
             layer: xplane_sys::xplm_WindowLayerFloatingWindows as _,
             handleRightClickFunc: None,
@@ -134,6 +136,7 @@ impl Window {
     }
 
     /// Returns the geometry of this window
+    #[must_use]
     pub fn geometry(&self) -> Rect<i32> {
         unsafe {
             let mut left = 0;
@@ -165,13 +168,14 @@ impl Window {
     }
 
     /// Returns true if this window is visible
+    #[must_use]
     pub fn visible(&self) -> bool {
         1 == unsafe { xplane_sys::XPLMGetWindowIsVisible(self.id) }
     }
     /// Sets the window as visible or invisible
     pub fn set_visible(&self, visible: bool) {
         unsafe {
-            xplane_sys::XPLMSetWindowIsVisible(self.id, visible as _);
+            xplane_sys::XPLMSetWindowIsVisible(self.id, i32::from(visible));
         }
     }
 }
@@ -186,7 +190,7 @@ impl Drop for Window {
 
 /// Callback in which windows are drawn
 unsafe extern "C" fn window_draw(_window: xplane_sys::XPLMWindowID, refcon: *mut c_void) {
-    let window = refcon as *mut Window;
+    let window = refcon.cast::<Window>();
     (*window).delegate.draw(&*window);
 }
 
@@ -199,13 +203,13 @@ unsafe extern "C" fn window_key(
     refcon: *mut c_void,
     losing_focus: c_int,
 ) {
-    let window = refcon as *mut Window;
+    let window = refcon.cast::<Window>();
     if losing_focus == 0 {
         match KeyEvent::from_xplm(key, flags, virtual_key) {
             Ok(event) => (*window).delegate.keyboard_event(&*window, event),
             Err(e) => {
                 let mut x = make_x();
-                super::debugln!(x, "Invalid key event received: {:?}", e).unwrap()
+                super::debugln!(x, "Invalid key event received: {:?}", e).unwrap();
                 // This should always be a valid string.
             }
         }
@@ -220,16 +224,12 @@ unsafe extern "C" fn window_mouse(
     status: xplane_sys::XPLMMouseStatus,
     refcon: *mut c_void,
 ) -> c_int {
-    let window = refcon as *mut Window;
+    let window = refcon.cast::<Window>();
     if let Some(action) = MouseAction::from_xplm(status) {
         let position = Point::from((x, y));
         let event = MouseEvent::new(position, action);
         let propagate = (*window).delegate.mouse_event(&*window, event);
-        if propagate {
-            0
-        } else {
-            1
-        }
+        i32::from(!propagate)
     } else {
         // Propagate
         0
@@ -243,7 +243,7 @@ unsafe extern "C" fn window_cursor(
     y: c_int,
     refcon: *mut c_void,
 ) -> xplane_sys::XPLMCursorStatus {
-    let window = refcon as *mut Window;
+    let window = refcon.cast::<Window>();
     let cursor = (*window).delegate.cursor(&*window, Point::from((x, y)));
     cursor.as_xplm()
 }
@@ -257,7 +257,7 @@ unsafe extern "C" fn window_scroll(
     clicks: c_int,
     refcon: *mut c_void,
 ) -> c_int {
-    let window = refcon as *mut Window;
+    let window = refcon.cast::<Window>();
 
     let position = Point::from((x, y));
     let (dx, dy) = if wheel == 1 {
@@ -270,11 +270,7 @@ unsafe extern "C" fn window_scroll(
     let event = ScrollEvent::new(position, dx, dy);
 
     let propagate = (*window).delegate.scroll_event(&*window, event);
-    if propagate {
-        0
-    } else {
-        1
-    }
+    i32::from(!propagate)
 }
 
 /// Key actions
@@ -425,6 +421,7 @@ pub enum Key {
 
 impl Key {
     /// Converts an XPLM virtual key code into a Key
+    #[allow(clippy::cast_sign_loss, clippy::too_many_lines)]
     fn from_xplm(xplm_key: c_char) -> Option<Self> {
         match xplm_key as u32 {
             xplane_sys::XPLM_VK_BACK => Some(Key::Back),
@@ -562,6 +559,7 @@ pub struct KeyEvent {
 
 impl KeyEvent {
     /// Creates a key event from XPLM key information
+    #[allow(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
     fn from_xplm(
         key: c_char,
         flags: xplane_sys::XPLMKeyFlags,
@@ -584,9 +582,8 @@ impl KeyEvent {
         let shift_pressed = flags & xplane_sys::xplm_ShiftFlag as ::xplane_sys::XPLMKeyFlags != 0;
         let option_pressed =
             flags & xplane_sys::xplm_OptionAltFlag as ::xplane_sys::XPLMKeyFlags != 0;
-        let key = match Key::from_xplm(virtual_key) {
-            Some(key) => key,
-            None => return Err(KeyEventError::InvalidKey(virtual_key)),
+        let Some(key) = Key::from_xplm(virtual_key) else {
+            return Err(KeyEventError::InvalidKey(virtual_key))
         };
 
         Ok(KeyEvent {
@@ -602,26 +599,32 @@ impl KeyEvent {
     ///
     /// Some key combinations, including combinations with non-Shift modifiers, may not have
     /// corresponding characters.
+    #[must_use]
     pub fn char(&self) -> Option<char> {
         self.basic_char
     }
     /// Returns the key associated with this event
+    #[must_use]
     pub fn key(&self) -> Key {
         self.key.clone()
     }
     /// Returns true if the control key was held down when the action occurred
+    #[must_use]
     pub fn control_pressed(&self) -> bool {
         self.control_pressed
     }
     /// Returns true if the option/alt key was held down when the action occurred
+    #[must_use]
     pub fn option_pressed(&self) -> bool {
         self.alt_pressed
     }
     /// Returns true if a shift key was held down when the action occurred
+    #[must_use]
     pub fn shift_pressed(&self) -> bool {
         self.shift_pressed
     }
     /// Returns the key action that occurred
+    #[must_use]
     pub fn action(&self) -> KeyAction {
         self.action.clone()
     }
@@ -649,6 +652,7 @@ pub enum MouseAction {
 }
 
 impl MouseAction {
+    #[allow(clippy::cast_possible_wrap)]
     fn from_xplm(status: xplane_sys::XPLMMouseStatus) -> Option<MouseAction> {
         if status == xplane_sys::xplm_MouseDown as xplane_sys::XPLMMouseStatus {
             Some(MouseAction::Down)
@@ -678,10 +682,12 @@ impl MouseEvent {
     }
     /// Returns the position of the mouse, in global coordinates relative to the X-Plane
     /// main window
+    #[must_use]
     pub fn position(&self) -> Point<i32> {
         self.position
     }
     /// Returns the action that the user performed with the mouse
+    #[must_use]
     pub fn action(&self) -> MouseAction {
         self.action.clone()
     }
@@ -709,14 +715,17 @@ impl ScrollEvent {
     }
     /// Returns the position of the mouse, in global coordinates relative to the X-Plane
     /// main window
+    #[must_use]
     pub fn position(&self) -> Point<i32> {
         self.position
     }
     /// Returns the amount of scroll in the X direction
+    #[must_use]
     pub fn scroll_x(&self) -> i32 {
         self.scroll_x
     }
     /// Returns the amount of scroll in the Y direction
+    #[must_use]
     pub fn scroll_y(&self) -> i32 {
         self.scroll_y
     }

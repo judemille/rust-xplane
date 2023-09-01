@@ -23,7 +23,7 @@ pub struct StringBuffer {
 // Why is dead code allowed here?
 #[allow(dead_code)]
 impl StringBuffer {
-    /// Creates a new StringBuffer with the provided length in bytes. All bytes in the string are
+    /// Creates a new `StringBuffer` with the provided length in bytes. All bytes in the string are
     /// set to null bytes (`\0`).
     pub fn new(length: usize) -> StringBuffer {
         StringBuffer {
@@ -33,7 +33,7 @@ impl StringBuffer {
 
     /// Returns a mutable pointer to the data in this buffer
     pub unsafe fn as_mut_ptr(&mut self) -> *mut c_char {
-        self.bytes.as_mut_ptr() as *mut c_char
+        self.bytes.as_mut_ptr().cast::<c_char>()
     }
 
     /// Returns the bytes in this buffer

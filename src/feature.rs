@@ -32,11 +32,15 @@ pub struct FeatureAPI {
 
 impl Feature {
     /// Returns the name of this feature
+    #[must_use]
     pub fn name(&self) -> &str {
         &self.name
     }
 
     /// Returns true if this feature is currently enabled
+    /// # Panics
+    /// This function can in theory panic if the `Feature` name is not a valid `CString`. This should not be possible.
+    #[must_use]
     pub fn enabled(&self) -> bool {
         let name_c = CString::new(&*self.name).unwrap();
         let enabled = unsafe { xplane_sys::XPLMIsFeatureEnabled(name_c.as_ptr()) };
@@ -44,6 +48,8 @@ impl Feature {
     }
 
     /// Enables or disables this feature
+    /// # Panics
+    /// This function can in theory panic if the `Feature` name is not a valid `CString`. This should not be possible.
     pub fn set_enabled(&self, enable: bool) {
         // Because this name was either copied from C with XPLMEnumerateFeatures or
         // checked with XPLMHasFeature, it must be valid as a C string.
@@ -60,12 +66,17 @@ impl fmt::Display for Feature {
 
 impl FeatureAPI {
     /// Looks for a feature with the provided name and returns it if it exists
-    pub fn find_feature<S: Into<String>>(&mut self, name: S) -> Result<Option<Feature>, NulError> {
+    /// # Errors
+    /// This function will return an error if `name` contains a NUL byte.
+    /// # Panics
+    /// This function can panic if `name`, which came in as a String-like, then was turned into a `CString`,
+    /// cannot be turned back into a `String`. This should not be possible.
+    pub fn find<S: Into<String>>(&mut self, name: S) -> Result<Option<Feature>, NulError> {
         let name = CString::new(name.into())?;
         let has_feature = unsafe { xplane_sys::XPLMHasFeature(name.as_ptr()) };
         if has_feature == 1 {
             // Convert name back into a String
-            // Because the string was not modified, conversion will always work.
+            // Because the string was not modified, conversion should always work.
             Ok(Some(Feature {
                 name: name.into_string().unwrap(),
                 _phantom: PhantomData,
@@ -76,11 +87,14 @@ impl FeatureAPI {
     }
 
     /// Returns all features supported by the X-Plane plugin SDK
-    pub fn all_features(&mut self) -> Vec<Feature> {
+    pub fn all(&mut self) -> Vec<Feature> {
         let mut features = Vec::new();
         let features_ptr: *mut _ = &mut features;
         unsafe {
-            xplane_sys::XPLMEnumerateFeatures(Some(feature_callback), features_ptr as *mut c_void);
+            xplane_sys::XPLMEnumerateFeatures(
+                Some(feature_callback),
+                features_ptr.cast::<c_void>(),
+            );
         }
         features
     }
@@ -89,7 +103,7 @@ impl FeatureAPI {
 /// Interprets refcon as a pointer to a Vec<Feature>.
 /// Allocates a new Feature and adds it to the vector
 unsafe extern "C" fn feature_callback(feature: *const c_char, refcon: *mut c_void) {
-    let features = refcon as *mut Vec<Feature>;
+    let features = refcon.cast::<Vec<Feature>>();
 
     let name = CStr::from_ptr(feature);
     if let Ok(name) = name.to_str() {

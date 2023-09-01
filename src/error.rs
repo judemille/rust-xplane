@@ -28,10 +28,10 @@ unsafe extern "C" fn error_handler(message: *const c_char) {
     let message_cs = CStr::from_ptr(message);
     if let Ok(message_str) = message_cs.to_str() {
         if let Some(handler) = HANDLER {
-            handler(message_str)
+            handler(message_str);
         }
     } else {
         let mut x = make_x();
-        super::debugln!(x, "[xplm] Error handler called with an invalid message").unwrap()
+        super::debugln!(x, "[xplm] Error handler called with an invalid message").unwrap();
     }
 }

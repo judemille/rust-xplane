@@ -11,7 +11,7 @@ pub fn path_init(x: &mut XPAPI) {
     // Feature specified to exist in SDK 2.1
     let native_path_feature = x
         .features
-        .find_feature("XPLM_USE_NATIVE_PATHS")
+        .find("XPLM_USE_NATIVE_PATHS")
         .unwrap() // Unwrap in this case is for NulError -- should not occur.
         .expect("No native paths feature"); // Expecting Some.
     native_path_feature.set_enabled(true);

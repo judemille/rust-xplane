@@ -4,8 +4,9 @@ use xplane::{
         ArrayRead, DataRead, ReadOnly, ReadWrite, StringRead,
     },
     debugln,
+    message::MessageId,
     plugin::{Plugin, PluginInfo},
-    xplane_plugin, message::Message,
+    xplane_plugin,
 };
 
 struct DataRefPlugin {
@@ -65,8 +66,12 @@ impl Plugin for DataRefPlugin {
             description: String::from("Tests the DataRef features of xplm"),
         }
     }
-    fn receive_message(&mut self, _from: i32, _message: Message, _param: *mut std::os::raw::c_void) {
-        
+    fn receive_message(
+        &mut self,
+        _from: i32,
+        _message: MessageId,
+        _param: *mut std::os::raw::c_void,
+    ) {
     }
 }
 

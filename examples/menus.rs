@@ -5,9 +5,10 @@
 
 use xplane::{
     debugln,
-    menu::{ActionItem, CheckHandler, CheckItem, Menu, MenuClickHandler},
+    menu::{ActionItem, CheckHandler, CheckItem, ClickHandler, Menu},
+    message::MessageId,
     plugin::{Plugin, PluginInfo},
-    xplane_plugin, message::Message,
+    xplane_plugin,
 };
 
 struct MenuPlugin {
@@ -37,8 +38,12 @@ impl Plugin for MenuPlugin {
             description: String::from("A plugin written in Rust that creates menus and menu items"),
         }
     }
-    fn receive_message(&mut self, _from: i32, _message: Message, _param: *mut std::os::raw::c_void) {
-        
+    fn receive_message(
+        &mut self,
+        _from: i32,
+        _message: MessageId,
+        _param: *mut std::os::raw::c_void,
+    ) {
     }
 }
 
@@ -54,7 +59,7 @@ impl CheckHandler for CheckHandler1 {
 
 struct ActionHandler1;
 
-impl MenuClickHandler for ActionHandler1 {
+impl ClickHandler for ActionHandler1 {
     fn item_clicked(&mut self, _item: &ActionItem) {
         debugln!("Action 1 selected");
     }

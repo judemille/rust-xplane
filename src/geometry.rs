@@ -2,8 +2,7 @@
 //! User interface geometry
 //!
 //! The 2D coordinate system in X-Plane has its origin in the lower left corner of the window.
-//! Its units are pixels. [More information about X-Plane's coordinate systems is available here]
-//! (http://www.xsquawkbox.net/xpsdk/mediawiki/ScreenCoordinates)
+//! Its units are pixels. [More information about X-Plane's coordinate systems is available here](http://www.xsquawkbox.net/xpsdk/mediawiki/ScreenCoordinates)
 //!
 
 /// A 2-dimensional rectangle

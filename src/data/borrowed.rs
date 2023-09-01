@@ -5,7 +5,11 @@ use std::{
     ptr,
 };
 
-use xplane_sys::*;
+use xplane_sys::{
+    XPLMCanWriteDataRef, XPLMDataRef, XPLMFindDataRef, XPLMGetDataRefTypes, XPLMGetDatab,
+    XPLMGetDatad, XPLMGetDataf, XPLMGetDatai, XPLMGetDatavf, XPLMGetDatavi, XPLMSetDatab,
+    XPLMSetDatad, XPLMSetDataf, XPLMSetDatai, XPLMSetDatavf, XPLMSetDatavi,
+};
 
 use super::{ArrayRead, ArrayReadWrite, DataRead, DataReadWrite, DataType, ReadOnly, ReadWrite};
 
@@ -25,7 +29,7 @@ pub struct DataRef<T: ?Sized, A = ReadOnly> {
 
 impl<T: DataType + ?Sized> DataRef<T, ReadOnly> {
     /// Finds a readable dataref by its name
-    ///
+    /// # Errors
     /// Returns an error if the dataref does not exist or has the wrong type
     pub fn find(name: &str) -> Result<Self, FindError> {
         let name_c = CString::new(name)?;
@@ -37,19 +41,19 @@ impl<T: DataType + ?Sized> DataRef<T, ReadOnly> {
         }
 
         let actual_type = unsafe { XPLMGetDataRefTypes(dataref) };
-        if actual_type & expected_type != 0 {
+        if actual_type & expected_type == 0 {
+            Err(FindError::WrongType)
+        } else {
             Ok(DataRef {
                 id: dataref,
                 _type_phantom: PhantomData,
                 _access_phantom: PhantomData,
             })
-        } else {
-            Err(FindError::WrongType)
         }
     }
 
     /// Makes this dataref writable
-    ///
+    /// # Errors
     /// Returns an error if the dataref cannot be written.
     pub fn writeable(self) -> Result<DataRef<T, ReadWrite>, Self> {
         let writable = unsafe { XPLMCanWriteDataRef(self.id) == 1 };
@@ -65,7 +69,7 @@ impl<T: DataType + ?Sized> DataRef<T, ReadOnly> {
     }
 }
 
-/// Creates a DataType implementation, DataRef::get() and DataRef::set() for a type
+/// Creates a `DataType` implementation, `DataRef::get` and `DataRef::set` for a type
 macro_rules! dataref_type {
     // Basic case
     (
@@ -105,7 +109,12 @@ macro_rules! dataref_type {
             fn get(&self, dest: &mut [$native_type]) -> usize {
                 let size = array_size(dest.len());
                 let copy_count = unsafe {
-                    $read_fn(self.id, dest.as_mut_ptr() as *mut $sim_native_type, 0, size)
+                    $read_fn(
+                        self.id,
+                        dest.as_mut_ptr().cast::<$sim_native_type>(),
+                        0,
+                        size,
+                    )
                 };
                 copy_count as usize
             }
@@ -240,12 +249,13 @@ impl<A> DataRead<bool> for DataRef<bool, A> {
 
 impl DataReadWrite<bool> for DataRef<bool, ReadWrite> {
     fn set(&mut self, value: bool) {
-        let int_value = if value { 1 } else { 0 };
+        let int_value = i32::from(value);
         unsafe { XPLMSetDatai(self.id, int_value) };
     }
 }
 
-/// Converts a usize into an i32. Returns i32::MAX if the provided size is too large for an i32
+/// Converts a usize into an i32. Returns `i32::MAX` if the provided size is too large for an i32
+#[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
 fn array_size(size: usize) -> i32 {
     if size > (i32::MAX as usize) {
         i32::MAX
@@ -254,7 +264,7 @@ fn array_size(size: usize) -> i32 {
     }
 }
 
-/// Errors that can occur when finding DataRefs
+/// Errors that can occur when finding `DataRef`s
 #[derive(thiserror::Error, Debug)]
 pub enum FindError {
     /// The provided DataRef name contained a null byte

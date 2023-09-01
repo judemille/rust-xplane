@@ -106,8 +106,8 @@ pub struct Menu {
 
 impl Menu {
     /// Creates a new menu with the provided name
-    ///
-    /// Returns an error if the name contains a null byte
+    /// # Errors
+    /// Returns an error if the name contains a NUL byte
     pub fn new<S: Into<String>>(name: S) -> Result<Self, NulError> {
         let name = name.into();
         check_c_string(&name)?;
@@ -124,8 +124,8 @@ impl Menu {
         borrow.clone()
     }
     /// Sets the name of this menu
-    ///
-    /// Returns an error if the name contains a null byte
+    /// # Errors
+    /// Returns an error if the name contains a NUL byte
     pub fn set_name<S: AsRef<str>>(&self, name: S) -> Result<(), NulError> {
         let name = name.as_ref();
         check_c_string(name)?;
@@ -135,7 +135,7 @@ impl Menu {
         Ok(())
     }
     /// Adds a child to this menu
-    /// The child argument may be a Menu, ActionItem, CheckItem, or Separator,
+    /// The child argument may be a Menu, `ActionItem`, `CheckItem`, or Separator,
     /// or an Rc containing one of these types.
     pub fn add_child<R, C>(&self, child: R)
     where
@@ -298,17 +298,14 @@ pub struct ActionItem {
     /// Information about the menu this item is part of
     in_menu: Cell<Option<InMenu>>,
     /// The item click handler
-    handler: Box<RefCell<dyn MenuClickHandler>>,
+    handler: Box<RefCell<dyn ClickHandler>>,
 }
 
 impl ActionItem {
     /// Creates a new item
-    ///
+    /// # Errors
     /// Returns an error if the name contains a null byte
-    pub fn new<S: Into<String>, H: MenuClickHandler>(
-        name: S,
-        handler: H,
-    ) -> Result<Self, NulError> {
+    pub fn new<S: Into<String>, H: ClickHandler>(name: S, handler: H) -> Result<Self, NulError> {
         let name = name.into();
         check_c_string(&name)?;
         Ok(ActionItem {
@@ -324,7 +321,7 @@ impl ActionItem {
         borrow.clone()
     }
     /// Sets the name of this item
-    ///
+    /// # Errors
     /// Returns an error if the name contains a null byte
     pub fn set_name(&self, name: &str) -> Result<(), NulError> {
         let name_c = CString::new(name)?;
@@ -398,17 +395,17 @@ impl fmt::Debug for ActionItem {
 }
 
 /// Trait for things that can respond when the user clicks on a menu item
-pub trait MenuClickHandler: 'static {
+pub trait ClickHandler: 'static {
     /// Called when the user clicks on a menu item. The clicked item is passed.
     fn item_clicked(&mut self, item: &ActionItem);
 }
 
-impl<F> MenuClickHandler for F
+impl<F> ClickHandler for F
 where
     F: FnMut(&ActionItem) + 'static,
 {
     fn item_clicked(&mut self, item: &ActionItem) {
-        self(item)
+        self(item);
     }
 }
 
@@ -428,7 +425,7 @@ pub struct CheckItem {
 
 impl CheckItem {
     /// Creates a new item
-    ///
+    /// # Errors
     /// Returns an error if the name contains a null byte
     pub fn new<S: Into<String>, H: CheckHandler>(
         name: S,
@@ -492,7 +489,7 @@ impl CheckItem {
         borrow.clone()
     }
     /// Sets the name of this item
-    ///
+    /// # Errors
     /// Returns an error if the name contains a null byte
     pub fn set_name(&self, name: &str) -> Result<(), NulError> {
         let name_c = CString::new(name)?;
@@ -580,7 +577,7 @@ where
     F: FnMut(&CheckItem, bool) + 'static,
 {
     fn item_checked(&mut self, item: &CheckItem, checked: bool) {
-        self(item, checked)
+        self(item, checked);
     }
 }
 
@@ -608,7 +605,7 @@ impl InMenu {
     }
 }
 
-/// Confirms that the provided string can be converted into a CString.
+/// Confirms that the provided string can be converted into a `CString`.
 /// Returns an error if it cannot.
 fn check_c_string(text: &str) -> Result<(), NulError> {
     CString::new(text).map(|_| ())
@@ -616,7 +613,7 @@ fn check_c_string(text: &str) -> Result<(), NulError> {
 
 /// The menu handler callback used for all menu items
 ///
-/// item_ref is a pointer to the relevant Item, allocated in an Rc
+/// `item_ref` is a pointer to the relevant Item, allocated in an Rc
 unsafe extern "C" fn menu_handler(_menu_ref: *mut c_void, item_ref: *mut c_void) {
     let item = item_ref as *const Item;
     (*item).handle_click();

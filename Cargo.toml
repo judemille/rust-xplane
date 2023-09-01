@@ -8,12 +8,14 @@ keywords = ["X-Plane", "plugin"]
 description = "High-level interfaces to the X-Plane plugin SDK"
 readme = "README.md"
 edition = "2021"
+rust-version = "1.72"
+categories = ["API bindings", "Game development"]
 
 [dependencies]
 xplane-sys = "4.0.101"
 thiserror = "1.0.24"
 num_enum = "0.7"
-ahash = "0.8"
+rustc-hash = "1.1"
 
 [features]
 XPLM400 = ["XPLM303", "xplane-sys/XPLM400"]
@@ -24,6 +26,9 @@ XPLM210 = ["xplane-sys/XPLM210"]
 
 [profile.release]
 lto = true
+
+[profile.dev]
+opt-level = 1
 
 [[example]]
 name = "minimal"

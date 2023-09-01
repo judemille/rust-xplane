@@ -61,7 +61,7 @@ pub trait ArrayRead<T: ArrayType + ?Sized> {
     /// If the dataref is smaller than the provided slice, the extra values in the slice will not
     /// be modified.
     ///
-    /// The maximum number of values in an array dataref is i32::MAX.
+    /// The maximum number of values in an array dataref is `i32::MAX`.
     ///
     /// This function returns the number of values that were read.
     fn get(&self, dest: &mut [T::Element]) -> usize;
@@ -102,20 +102,22 @@ pub trait ArrayReadWrite<T: ArrayType + ?Sized>: ArrayRead<T> {
 pub trait StringRead {
     /// Reads the value of this dataref and appends it to the provided string
     ///
-    /// Returns an error if the dataref is not valid UTF-8.
-    ///
     /// If the provided string is not empty, the value of the dataref will be appended to it.
+    /// # Errors
+    /// Returns an error if the dataref is not valid UTF-8.
     fn get_to_string(&self, out: &mut String) -> Result<(), FromUtf8Error>;
 
     /// Reads the value of this dataref as a string and returns it
+    /// # Errors
+    /// Returns an error if the dataref is not valid UTF-8.
     fn get_as_string(&self) -> Result<String, FromUtf8Error>;
 }
 
 /// Trait for data accessors that can be written as strings
 pub trait StringReadWrite: StringRead {
     /// Sets the value of this dataref from a string
-    ///
-    /// Returns an error if the string contains a null byte
+    /// # Errors
+    /// Returns an error if the string contains a NUL byte
     fn set_as_string(&mut self, value: &str) -> Result<(), NulError>;
 }
 

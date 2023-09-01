@@ -11,8 +11,6 @@ use std::{
     ptr,
 };
 
-
-
 use crate::make_x;
 
 use super::{
@@ -33,9 +31,9 @@ pub struct PluginData<P> {
 
 /// Implements the XPluginStart callback
 ///
-/// This reduces the amount of code in the xplane_plugin! macro.
+/// This reduces the amount of code in the `xplane_plugin` macro.
 ///
-/// data is a reference to a PluginData object where the created plugin will be stored.
+/// data is a reference to a `PluginData` object where the created plugin will be stored.
 /// The other parameters are the same as for XPluginStart.
 ///
 /// This function tries to create and allocate a plugin. On success, it stores a pointer to the
@@ -88,7 +86,14 @@ pub unsafe fn xplugin_stop<P>(data: &mut PluginData<P>)
 where
     P: Plugin,
 {
-    if !data.panicked {
+    if data.panicked {
+        let mut x = make_x();
+        debugln!(
+            x,
+            "Warning: A plugin that panicked cannot be stopped. It may leak resources."
+        )
+        .unwrap(); // This string should be valid.
+    } else {
         let unwind = panic::catch_unwind(AssertUnwindSafe(|| {
             let plugin = Box::from_raw(data.plugin);
             data.plugin = ptr::null_mut();
@@ -98,9 +103,6 @@ where
             eprintln!("Panic in XPluginStop");
             data.panicked = true;
         }
-    } else {
-        let mut x = make_x();
-        debugln!(x, "Warning: A plugin that panicked cannot be stopped. It may leak resources.").unwrap(); // This string should be valid.
     }
 }
 
@@ -111,23 +113,24 @@ pub unsafe fn xplugin_enable<P>(data: &mut PluginData<P>) -> c_int
 where
     P: Plugin,
 {
-    if !data.panicked {
+    if data.panicked {
+        // Can't enable a plugin that has panicked
+        0
+    } else {
         let mut x = make_x();
-        let unwind = panic::catch_unwind(AssertUnwindSafe(|| match (*data.plugin).enable(&mut x) {
-            Ok(_) => 1,
-            Err(e) => {
-                debugln!(x, "Plugin failed to enable: {}", e).unwrap(); // This string should be valid.
-                0
-            }
-        }));
+        let unwind =
+            panic::catch_unwind(AssertUnwindSafe(|| match (*data.plugin).enable(&mut x) {
+                Ok(_) => 1,
+                Err(e) => {
+                    debugln!(x, "Plugin failed to enable: {}", e).unwrap(); // This string should be valid.
+                    0
+                }
+            }));
         unwind.unwrap_or_else(|_| {
             eprintln!("Panic in XPluginEnable");
             data.panicked = true;
             0
         })
-    } else {
-        // Can't enable a plugin that has panicked
-        0
     }
 }
 

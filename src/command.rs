@@ -7,7 +7,6 @@
 use std::{
     ffi::{CString, NulError},
     marker::PhantomData,
-    ops::DerefMut,
     os::raw::{c_int, c_void},
 };
 
@@ -37,16 +36,18 @@ impl Command {
     /// Finds a command
     ///
     /// The command should have already been created by X-Plane or another plugin.
+    /// # Errors
+    /// Errors if command could not be found.
     pub fn find(name: &str) -> Result<Self, CommandFindError> {
         let name_c = CString::new(name)?;
         let command_ref = unsafe { XPLMFindCommand(name_c.as_ptr()) };
-        if !command_ref.is_null() {
+        if command_ref.is_null() {
+            Err(CommandFindError::NotFound)
+        } else {
             Ok(Command {
                 id: command_ref,
                 _phantom: PhantomData,
             })
-        } else {
-            Err(CommandFindError::NotFound)
         }
     }
 
@@ -62,7 +63,7 @@ impl Command {
     /// Starts holding down this command
     ///
     /// The command will be released when the returned hold object is dropped.
-    pub fn hold_down<'a>(&'a mut self) -> CommandHold<'a> {
+    pub fn hold_down(&'_ mut self) -> CommandHold<'_> {
         unsafe {
             XPLMCommandBegin(self.id);
         }
@@ -124,7 +125,7 @@ pub struct OwnedCommand {
 
 impl OwnedCommand {
     /// Creates a new command with a provided name and description
-    ///
+    /// # Errors
     /// Returns an error if a matching command already exists.
     pub fn new<H: CommandHandler>(
         name: &str,
@@ -132,13 +133,13 @@ impl OwnedCommand {
         handler: H,
     ) -> Result<Self, CommandCreateError> {
         let mut data = Box::new(OwnedCommandData::new(name, description, handler)?);
-        let data_ptr: *mut OwnedCommandData = data.deref_mut();
+        let data_ptr: *mut OwnedCommandData = &mut *data;
         unsafe {
             XPLMRegisterCommandHandler(
                 data.id,
                 Some(command_handler::<H>),
                 1,
-                data_ptr as *mut c_void,
+                data_ptr.cast::<c_void>(),
             );
         }
         Ok(OwnedCommand {
@@ -150,9 +151,9 @@ impl OwnedCommand {
 
 impl Drop for OwnedCommand {
     fn drop(&mut self) {
-        let data_ptr: *mut OwnedCommandData = self.data.deref_mut();
+        let data_ptr: *mut OwnedCommandData = &mut *self.data;
         unsafe {
-            XPLMUnregisterCommandHandler(self.data.id, self.callback, 1, data_ptr as *mut c_void);
+            XPLMUnregisterCommandHandler(self.data.id, self.callback, 1, data_ptr.cast::<c_void>());
         }
     }
 }
@@ -188,15 +189,16 @@ impl OwnedCommandData {
     }
 }
 
+#[allow(clippy::cast_possible_wrap)]
 /// Command handler callback
 unsafe extern "C" fn command_handler<H: CommandHandler>(
     _: XPLMCommandRef,
     phase: XPLMCommandPhase,
     refcon: *mut c_void,
 ) -> c_int {
-    let data = refcon as *mut OwnedCommandData;
-    let handler: *mut dyn CommandHandler = (*data).handler.deref_mut();
-    let handler = handler as *mut H;
+    let data = refcon.cast::<OwnedCommandData>();
+    let handler: *mut dyn CommandHandler = &mut *(*data).handler;
+    let handler = handler.cast::<H>();
     if phase == xplm_CommandBegin as i32 {
         (*handler).command_begin();
     } else if phase == xplm_CommandContinue as i32 {

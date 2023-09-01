@@ -1,0 +1,27 @@
+name: Rust
+
+on:
+  push:
+    branches:
+      - main
+      - releases/**
+  pull_request:
+    branches:
+      - main
+      - releases/**
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Build and Run Tests
+    steps:
+    - uses: actions/checkout@v3
+    - name: Ensure Rust is up to date.
+      run: rustup default stable && rustup update
+    - name: Build
+      run: cargo build --verbose -FXPLM400
+    - name: Run tests
+      run: cargo test --verbose -FXPLM400

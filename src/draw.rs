@@ -13,7 +13,7 @@ where
     F: 'static + FnMut(),
 {
     fn draw(&mut self) {
-        self()
+        self();
     }
 }
 
@@ -31,6 +31,8 @@ pub struct Draw {
 
 impl Draw {
     /// Creates a new drawing callback
+    /// # Errors
+    /// Errors if X-Plane does not support the provided drawing phase.
     pub fn new<C: DrawCallback>(phase: Phase, callback: C) -> Result<Self, Error> {
         let xplm_phase = phase.to_xplm();
         let callback_box = Box::new(callback);
@@ -74,7 +76,7 @@ unsafe extern "C" fn draw_callback<C: DrawCallback>(
     _before: c_int,
     refcon: *mut c_void,
 ) -> c_int {
-    let callback_ptr = refcon as *mut C;
+    let callback_ptr = refcon.cast::<C>();
     (*callback_ptr).draw();
     // Always allow X-Plane to draw
     1
@@ -98,9 +100,11 @@ pub enum Phase {
     AfterLocalMapProfile,
 }
 
+#[allow(clippy::cast_possible_wrap)]
 impl Phase {
-    /// Converts this phase into an XPLMDrawingPhase and a 0 for after or 1 for before
+    /// Converts this phase into an `XPLMDrawingPhase` and a 0 for after or 1 for before
     fn to_xplm(self) -> xplane_sys::XPLMDrawingPhase {
+        #[allow(clippy::enum_glob_use)]
         use self::Phase::*;
         let phase = match self {
             AfterPanel => xplane_sys::xplm_Phase_Panel,
@@ -149,13 +153,13 @@ pub struct GraphicsState {
 pub fn set_state(state: &GraphicsState) {
     unsafe {
         xplane_sys::XPLMSetGraphicsState(
-            state.fog as i32,
+            i32::from(state.fog),
             state.textures,
-            state.lighting as i32,
-            state.alpha_testing as i32,
-            state.alpha_blending as i32,
-            state.depth_testing as i32,
-            state.depth_writing as i32,
+            i32::from(state.lighting),
+            i32::from(state.alpha_testing),
+            i32::from(state.alpha_blending),
+            i32::from(state.depth_testing),
+            i32::from(state.depth_writing),
         );
     }
 }
@@ -173,8 +177,9 @@ pub fn bind_texture(texture_number: i32, texture_id: i32) {
 ///
 /// This function should be used instead of glGenTextures.
 ///
-/// Texture IDs are placed in the provided slice. If the slice contains more than i32::max_value()
-/// elements, no more than i32::max_value() texture IDs will be generated.
+/// Texture IDs are placed in the provided slice. If the slice contains more than `i32::MAX`
+/// elements, no more than `i32::MAX` texture IDs will be generated.
+#[allow(clippy::cast_possible_wrap, clippy::cast_possible_truncation)]
 pub fn generate_texture_numbers(numbers: &mut [i32]) {
     let count = if numbers.len() < (i32::max_value() as usize) {
         numbers.len() as i32
@@ -189,8 +194,9 @@ pub fn generate_texture_numbers(numbers: &mut [i32]) {
 ///
 /// Generates a single texture number
 ///
-/// See generate_texture_numbers for more detail.
+/// See `generate_texture_numbers` for more detail.
 ///
+#[must_use]
 pub fn generate_texture_number() -> i32 {
     let number = 0;
     generate_texture_numbers(&mut [number]);

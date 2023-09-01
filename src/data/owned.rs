@@ -7,7 +7,13 @@ use std::{
     ptr,
 };
 
-use xplane_sys::*;
+use xplane_sys::{
+    xplmType_Data, xplmType_Double, xplmType_Float, xplmType_FloatArray, xplmType_Int,
+    xplmType_IntArray, XPLMDataRef, XPLMFindDataRef, XPLMGetDatab_f, XPLMGetDatad_f,
+    XPLMGetDataf_f, XPLMGetDatai_f, XPLMGetDatavf_f, XPLMGetDatavi_f, XPLMRegisterDataAccessor,
+    XPLMSetDatab_f, XPLMSetDatad_f, XPLMSetDataf_f, XPLMSetDatai_f, XPLMSetDatavf_f,
+    XPLMSetDatavi_f, XPLMUnregisterDataAccessor,
+};
 
 use super::{Access, ArrayRead, ArrayReadWrite, DataRead, DataReadWrite, DataType, ReadOnly};
 
@@ -29,6 +35,8 @@ pub struct OwnedData<T: DataType + ?Sized, A = ReadOnly> {
 
 impl<T: DataType + ?Sized, A: Access> OwnedData<T, A> {
     /// Creates a new dataref with the provided name containing the default value of T
+    /// # Errors
+    /// Errors if there is a NUL character in the dataref name, or if a dataref with that name already exists.
     pub fn new(name: &str) -> Result<Self, CreateError>
     where
         T: Default,
@@ -37,6 +45,10 @@ impl<T: DataType + ?Sized, A: Access> OwnedData<T, A> {
     }
 
     /// Creates a new dataref with the provided name and value
+    /// # Errors
+    /// Errors if there is a NUL character in the dataref name, or if a dataref with that name already exists.
+    /// # Panics
+    /// Panics if the dataref ID returned from X-Plane is null. This should not occur.
     pub fn new_with_value(name: &str, value: &T) -> Result<Self, CreateError> {
         let name_c = CString::new(name)?;
 
@@ -66,12 +78,12 @@ impl<T: DataType + ?Sized, A: Access> OwnedData<T, A> {
                 Self::float_array_write(),
                 Self::byte_array_read(),
                 Self::byte_array_write(),
-                value_ptr as *mut c_void,
-                value_ptr as *mut c_void,
+                value_ptr.cast::<std::ffi::c_void>(),
+                value_ptr.cast::<std::ffi::c_void>(),
             )
         };
 
-        assert!(!id.is_null());
+        assert!(!id.is_null(), "Dataref ID of created dataref is null!");
         Ok(OwnedData {
             id,
             value: value_box,
@@ -81,17 +93,13 @@ impl<T: DataType + ?Sized, A: Access> OwnedData<T, A> {
 
     /// Returns 1 if this dataref should be writeable by other plugins and X-Plane
     fn writeable() -> i32 {
-        if A::writeable() {
-            1
-        } else {
-            0
-        }
+        i32::from(A::writeable())
     }
     fn int_read() -> XPLMGetDatai_f {
-        if T::sim_type() & xplmType_Int as i32 != 0 {
-            Some(int_read)
-        } else {
+        if T::sim_type() & xplmType_Int as i32 == 0 {
             None
+        } else {
+            Some(int_read)
         }
     }
     fn int_write() -> XPLMSetDatai_f {
@@ -102,10 +110,10 @@ impl<T: DataType + ?Sized, A: Access> OwnedData<T, A> {
         }
     }
     fn float_read() -> XPLMGetDataf_f {
-        if T::sim_type() & xplmType_Float as i32 != 0 {
-            Some(float_read)
-        } else {
+        if T::sim_type() & xplmType_Float as i32 == 0 {
             None
+        } else {
+            Some(float_read)
         }
     }
     fn float_write() -> XPLMSetDataf_f {
@@ -116,10 +124,10 @@ impl<T: DataType + ?Sized, A: Access> OwnedData<T, A> {
         }
     }
     fn double_read() -> XPLMGetDatad_f {
-        if T::sim_type() & xplmType_Double as i32 != 0 {
-            Some(double_read)
-        } else {
+        if T::sim_type() & xplmType_Double as i32 == 0 {
             None
+        } else {
+            Some(double_read)
         }
     }
     fn double_write() -> XPLMSetDatad_f {
@@ -130,10 +138,10 @@ impl<T: DataType + ?Sized, A: Access> OwnedData<T, A> {
         }
     }
     fn int_array_read() -> XPLMGetDatavi_f {
-        if T::sim_type() & xplmType_IntArray as i32 != 0 {
-            Some(int_array_read)
-        } else {
+        if T::sim_type() & xplmType_IntArray as i32 == 0 {
             None
+        } else {
+            Some(int_array_read)
         }
     }
     fn int_array_write() -> XPLMSetDatavi_f {
@@ -144,10 +152,10 @@ impl<T: DataType + ?Sized, A: Access> OwnedData<T, A> {
         }
     }
     fn float_array_read() -> XPLMGetDatavf_f {
-        if T::sim_type() & xplmType_FloatArray as i32 != 0 {
-            Some(float_array_read)
-        } else {
+        if T::sim_type() & xplmType_FloatArray as i32 == 0 {
             None
+        } else {
+            Some(float_array_read)
         }
     }
     fn float_array_write() -> XPLMSetDatavf_f {
@@ -158,10 +166,10 @@ impl<T: DataType + ?Sized, A: Access> OwnedData<T, A> {
         }
     }
     fn byte_array_read() -> XPLMGetDatab_f {
-        if T::sim_type() & xplmType_Data as i32 != 0 {
-            Some(byte_array_read)
-        } else {
+        if T::sim_type() & xplmType_Data as i32 == 0 {
             None
+        } else {
+            Some(byte_array_read)
         }
     }
     fn byte_array_write() -> XPLMSetDatab_f {
@@ -232,7 +240,7 @@ impl_read_write!(for array [f32]);
 impl_read_write!(for array [u8]);
 impl_read_write!(for array [i8]);
 
-/// Errors that can occur when creating a DataRef
+/// Errors that can occur when creating a `DataRef`
 #[derive(thiserror::Error, Debug)]
 pub enum CreateError {
     /// The provided DataRef name contained a null byte
@@ -249,37 +257,37 @@ pub enum CreateError {
 
 /// Integer read callback
 unsafe extern "C" fn int_read(refcon: *mut c_void) -> c_int {
-    let data_ptr = refcon as *mut c_int;
+    let data_ptr = refcon.cast::<i32>();
     *data_ptr
 }
 
 /// Integer write callback
 unsafe extern "C" fn int_write(refcon: *mut c_void, value: c_int) {
-    let data_ptr = refcon as *mut c_int;
+    let data_ptr = refcon.cast::<i32>();
     *data_ptr = value;
 }
 
 /// Float read callback
 unsafe extern "C" fn float_read(refcon: *mut c_void) -> f32 {
-    let data_ptr = refcon as *mut f32;
+    let data_ptr = refcon.cast::<f32>();
     *data_ptr
 }
 
 /// Float write callback
 unsafe extern "C" fn float_write(refcon: *mut c_void, value: f32) {
-    let data_ptr = refcon as *mut f32;
+    let data_ptr = refcon.cast::<f32>();
     *data_ptr = value;
 }
 
 /// Double read callback
 unsafe extern "C" fn double_read(refcon: *mut c_void) -> f64 {
-    let data_ptr = refcon as *mut f64;
+    let data_ptr = refcon.cast::<f64>();
     *data_ptr
 }
 
 /// Double write callback
 unsafe extern "C" fn double_write(refcon: *mut c_void, value: f64) {
-    let data_ptr = refcon as *mut f64;
+    let data_ptr = refcon.cast::<f64>();
     *data_ptr = value;
 }
 
@@ -331,7 +339,7 @@ unsafe extern "C" fn byte_array_read(
     offset: c_int,
     max: c_int,
 ) -> c_int {
-    array_read::<u8>(refcon, values as *mut u8, offset, max)
+    array_read::<u8>(refcon, values.cast::<u8>(), offset, max)
 }
 
 /// Byte array write callback
@@ -348,6 +356,7 @@ unsafe extern "C" fn byte_array_write(
 /// Otherwise, reads up to max elements from this dataref starting at offset offset and copies them
 /// into values.
 #[inline]
+#[allow(clippy::cast_sign_loss)]
 unsafe fn array_read<T: Copy>(
     refcon: *mut c_void,
     values: *mut T,
@@ -374,10 +383,11 @@ unsafe fn array_read<T: Copy>(
 
 /// Reads up to max items from values and writes them to this dataref, starting at offset offset
 #[inline]
+#[allow(clippy::cast_sign_loss)]
 unsafe fn array_write<T: Copy>(refcon: *mut c_void, values: *const T, offset: c_int, max: c_int) {
     let offset = offset as usize;
     let max = max as usize;
-    let dataref_content = refcon as *mut Vec<T>;
+    let dataref_content = refcon.cast::<Vec<T>>();
     let dataref_length = (*dataref_content).len();
 
     if offset >= dataref_length {

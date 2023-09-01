@@ -1,10 +1,12 @@
-#![deny(trivial_casts)]
-#![warn(clippy::all)]
 // Copyright (c) 2023 Julia DeMille
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
+#![deny(trivial_casts)]
+#![warn(clippy::all, clippy::pedantic, clippy::cargo)]
+// Making some lints from clippy::pedantic allow instead of warn.
+#![allow(clippy::module_name_repetitions)]
 
 //! Bindings to the X-Plane plugin SDK
 
@@ -22,8 +24,7 @@ mod paths;
 /// Plugin macro
 mod plugin_macro;
 
-/// Utilities that the xplane_plugin macro-generated code uses
-///
+/// Utilities that the `xplane_plugin` macro-generated code uses
 mod internal;
 
 /// Commands
@@ -66,6 +67,8 @@ pub struct XPAPI {
 
 impl XPAPI {
     /// Write a string to the X-Plane log. You probably want [`debug!`] or [`debugln!`] instead.
+    /// # Errors
+    /// This function will error if the passed [`String`] has a NUL ('\0') character in it.
     pub fn debug_string(&mut self, s: String) -> Result<(), NulError> {
         let s = CString::new(s)?;
         unsafe {
@@ -84,11 +87,11 @@ impl XPAPI {
 
     /// Creates a new flight loop. The provided callback will not be
     /// called until the loop is scheduled.
-    pub fn new_flight_loop<C>(&mut self, callback: C) -> FlightLoop<C>
+    pub fn new_flight_loop<T, C>(&mut self, callback: C, base_state: T) -> FlightLoop<T, C>
     where
-        C: FlightLoopCallback,
+        C: FlightLoopCallback<T>,
     {
-        FlightLoop::new(callback)
+        FlightLoop::new(callback, base_state)
     }
 }
 
