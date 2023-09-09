@@ -2,7 +2,7 @@
 authors = ["Julia DeMille <me@jdemille.com>", "Sam Crow <samcrow@uw.edu>"]
 name = "xplane"
 version = "0.3.1"
-license = "MPL-2.0"
+license = "EUPL-1.2"
 repository = "https://github.com/judemille/rust-xplane"
 keywords = ["X-Plane", "plugin"]
 description = "High-level interfaces to the X-Plane plugin SDK"
@@ -13,9 +13,9 @@ categories = ["API bindings", "Game development"]
 
 [dependencies]
 xplane-sys = "4.0.101"
-thiserror = "1.0.24"
+thiserror = "1.0"
 num_enum = "0.7"
-rustc-hash = "1.1"
+slotmap = "1.0"
 
 [features]
 XPLM400 = ["XPLM303", "xplane-sys/XPLM400"]

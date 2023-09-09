@@ -1,11 +1,11 @@
-// Copyright (c) 2015 rust-xplm developers
-// Licensed under the Apache License, Version 2.0
-// <LICENSE-APACHE or
-// http://www.apache.org/licenses/LICENSE-2.0> or the MIT
-// license <LICENSE-MIT or http://opensource.org/licenses/MIT>,
-// at your option. All files in the project carrying such
-// notice may not be copied, modified, or distributed except
-// according to those terms.
+// Copyright (c) 2023 Julia DeMille
+// 
+// Licensed under the EUPL, Version 1.2
+// 
+// You may not use this work except in compliance with the Licence.
+// You should have received a copy of the Licence along with this work. If not, see:
+// <https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12>.
+// See the Licence for the specific language governing permissions and limitations under the Licence.
 
 //! Foreign function interface utilities
 //!

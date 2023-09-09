@@ -15,15 +15,15 @@ Please open an issue if there is a compatibility regression.
 
 ## Status
 
-The library is still in an incomplete state. As a result some parts of the SDK may only be sparsely covered or missing
-completely.
+This library is going through a a complete rewrite to enforce threading invariants. Do not use it in
+its current state. Here is a checklist of components:
 
-- [x] Compiles and is callable from X-Plane
-- [x] Debug logging to the console / log file
-- [x] DataRef reading and writing
-- [x] Commands
-- [ ] GUI - Needs further work
-- [ ] Drawing - Needs further work
+- [ ] Compiles and is callable from X-Plane
+- [ ] Debug logging to the console / log file
+- [ ] DataRef reading and writing
+- [ ] Commands
+- [ ] GUI
+- [ ] Drawing
 
 ## Example
 
@@ -61,22 +61,26 @@ xplane_plugin!(MinimalPlugin);
 ```
 
 ## Disclaimer
-The author of this project is a trans lesbian who unequivocally supports Ukraine, and opposes any and all human rights violations.
+The current maintainer of this project is a trans lesbian who unequivocally supports Ukraine, and opposes any and all human rights violations.
 Do not use this project if you:
  * Do not unequivocally support the LGBTQ+ population, including transgender individuals.
+ * Think that LGBTQ+ people "shouldn't put it out on display"
+ * Refuse to address people with their preferred name, pronouns, and gender labels.
  * Do not support Ukraine
  * Support any far-right parties or politicians (including Vladimir Putin, the GOP, AfD, FdI, and similar)
 
-I cannot stop you, but if anyone found to meet the above listed criteria interacts with the project, they will be blocked from posting issues or pull requests.
+I cannot stop you, but if anyone observed to meet the above listed criteria interacts with the project,
+they will be blocked from posting issues or pull requests.
 
 ## License
 
-Licensed under the Mozilla Public License, version 2.0.
+Licensed under the European Union Public License, version 1.2. As the author currently resides outside the EU,
+all license disputes shall be handled in the courts of Belgium.
 Any code from commit `ba89d4234c5b4d7088a40b2bb8f537f72e1e2df3` and before is dual-licensed under the Apache License and the MIT License, at your choice.
 
 ## Minimum Supported Rust Version
-This crate is only tested with the latest stable Rust version at the time of a given commit. Maybe it will work with earlier versions. Maybe it won't.
-No guarantees are made as to version compatibility before the current stable Rust compiler.
+The MSRV of this crate is always the latest stable compiler version at the time of a given commit.
+Maybe it'll work on an older version. Maybe it won't. No guarantees.
 
 ### Contribution
 

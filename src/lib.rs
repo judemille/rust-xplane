@@ -1,8 +1,12 @@
 // Copyright (c) 2023 Julia DeMille
-//
-// This Source Code Form is subject to the terms of the Mozilla Public
-// License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// 
+// Licensed under the EUPL, Version 1.2
+// 
+// You may not use this work except in compliance with the Licence.
+// You should have received a copy of the Licence along with this work. If not, see:
+// <https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12>.
+// See the Licence for the specific language governing permissions and limitations under the Licence.
+
 #![deny(trivial_casts)]
 #![warn(clippy::all, clippy::pedantic, clippy::cargo)]
 // Making some lints from clippy::pedantic allow instead of warn.

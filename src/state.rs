@@ -1,12 +1,15 @@
 // Copyright (c) 2023 Julia DeMille
-//
-// This Source Code Form is subject to the terms of the Mozilla Public
-// License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+// 
+// Licensed under the EUPL, Version 1.2
+// 
+// You may not use this work except in compliance with the Licence.
+// You should have received a copy of the Licence along with this work. If not, see:
+// <https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12>.
+// See the Licence for the specific language governing permissions and limitations under the Licence.
 
 use std::{cell::UnsafeCell, marker::PhantomData, rc::Rc};
 
-use rustc_hash::FxHashMap;
+use slotmap::{SlotMap, Key, DefaultKey};
 
 use crate::NoSendSync;
 
@@ -34,22 +37,23 @@ impl<T> StateData<T> {
 }
 
 #[allow(dead_code)] // Will be making this code not dead.
-pub(crate) struct HandleableObjectMap<T> {
-    internal: *mut FxHashMap<String, Rc<UnsafeCell<T>>>,
+pub struct HandleableObjectMap<K: Key, V> {
+    internal: *mut SlotMap<K, Rc<UnsafeCell<V>>>,
     _phantom: NoSendSync,
 }
 
 #[allow(dead_code)] // Will be making this code not dead.
-impl<T> HandleableObjectMap<T> {
-    pub(crate) fn new(p: *mut FxHashMap<String, Rc<UnsafeCell<T>>>) -> Self {
+impl<K, V> HandleableObjectMap<K, V> 
+where K: Key{
+    pub(crate) fn new(p: *mut SlotMap<K, Rc<UnsafeCell<V>>>) -> Self {
         Self {
             internal: p,
             _phantom: PhantomData,
         }
     }
-    pub(crate) fn with_handle<U, V>(&mut self, closure: U) -> V
+    pub(crate) fn with_handle<F, T>(&mut self, closure: F) -> T
     where
-        U: FnOnce(&mut FxHashMap<String, Rc<UnsafeCell<T>>>) -> V,
+        F: FnOnce(&mut SlotMap<K, Rc<UnsafeCell<V>>>) -> T,
     {
         let i = unsafe { &mut *self.internal }; // internal will never be null.
         closure(i)
