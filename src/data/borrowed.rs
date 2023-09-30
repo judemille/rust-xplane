@@ -297,8 +297,9 @@ pub enum FindError {
 mod tests {
     /// Checks that the as operator truncates values
     #[test]
+    #[allow(clippy::cast_possible_truncation)]
     fn test_as_truncate() {
-        let x = 0x11223344u32;
+        let x = 0x1122_3344_u32;
         let x8 = x as u8;
         assert_eq!(x8, 0x44u8);
     }

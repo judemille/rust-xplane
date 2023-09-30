@@ -399,6 +399,7 @@ impl fmt::Debug for ActionItem {
         f.debug_struct("ActionItem")
             .field("name", &self.name)
             .field("in_menu", &self.in_menu)
+            .field("handler", &"[handler]")
             .finish()
     }
 }
@@ -571,6 +572,7 @@ impl fmt::Debug for CheckItem {
             .field("name", &self.name)
             .field("checked", &self.checked)
             .field("in_menu", &self.in_menu)
+            .field("handler", &"[handler]")
             .finish()
     }
 }

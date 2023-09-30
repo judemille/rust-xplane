@@ -1,13 +1,14 @@
 // Copyright (c) 2023 Julia DeMille
-// 
+//
 // Licensed under the EUPL, Version 1.2
-// 
+//
 // You may not use this work except in compliance with the Licence.
 // You should have received a copy of the Licence along with this work. If not, see:
 // <https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12>.
 // See the Licence for the specific language governing permissions and limitations under the Licence.
 
 use std::{
+    cell::RefCell,
     ffi::{CString, NulError},
     marker::PhantomData,
     os::raw::{c_int, c_void},
@@ -109,52 +110,58 @@ pub enum CommandFindError {
 }
 
 /// Trait for things that can handle commands
-pub trait CommandHandler: 'static {
+pub trait CommandHandler<T>: 'static {
     /// Called when the command begins (corresponds to a button being pressed down)
-    fn command_begin(&mut self);
+    fn command_begin(&mut self, state: &mut T);
     /// Called frequently while the command button is held down
-    fn command_continue(&mut self);
+    fn command_continue(&mut self, state: &mut T);
     /// Called when the command ends (corresponds to a button being released)
-    fn command_end(&mut self);
+    fn command_end(&mut self, state: &mut T);
 }
 
 /// A command created by this plugin that can be triggered by other components
-pub struct OwnedCommand {
+pub struct OwnedCommand<T> {
     /// The heap-allocated data
-    data: Box<OwnedCommandData>,
+    data: Box<OwnedCommandData<T>>,
     /// The handler callback, used to unregister
     callback: XPLMCommandCallback_f,
 }
 
-impl OwnedCommand {
+impl<T> OwnedCommand<T> {
     /// Creates a new command with a provided name and description
     /// # Errors
     /// Returns an error if a matching command already exists.
-    pub fn new<H: CommandHandler>(
+    pub fn new<H: CommandHandler<T>>(
         name: &str,
         description: &str,
         handler: H,
+        base_state: T,
     ) -> Result<Self, CommandCreateError> {
-        let mut data = Box::new(OwnedCommandData::new(name, description, handler)?);
-        let data_ptr: *mut OwnedCommandData = &mut *data;
+        let mut data = Box::new(OwnedCommandData::new(
+            name,
+            description,
+            handler,
+            base_state,
+        )?);
+        let data_ptr: *mut OwnedCommandData<T> = &mut *data;
         unsafe {
             XPLMRegisterCommandHandler(
                 data.id,
-                Some(command_handler::<H>),
+                Some(command_handler::<T, H>),
                 1,
                 data_ptr.cast::<c_void>(),
             );
         }
         Ok(OwnedCommand {
             data,
-            callback: Some(command_handler::<H>),
+            callback: Some(command_handler::<T, H>),
         })
     }
 }
 
-impl Drop for OwnedCommand {
+impl<T> Drop for OwnedCommand<T> {
     fn drop(&mut self) {
-        let data_ptr: *mut OwnedCommandData = &mut *self.data;
+        let data_ptr: *mut OwnedCommandData<T> = &mut *self.data;
         unsafe {
             XPLMUnregisterCommandHandler(self.data.id, self.callback, 1, data_ptr.cast::<c_void>());
         }
@@ -162,18 +169,21 @@ impl Drop for OwnedCommand {
 }
 
 /// Data for an owned command, used as a refcon
-struct OwnedCommandData {
+struct OwnedCommandData<T> {
     /// The command reference
     id: XPLMCommandRef,
     /// The handler
-    handler: Box<dyn CommandHandler>,
+    handler: Box<dyn CommandHandler<T>>,
+    /// The state data.
+    state: RefCell<T>,
 }
 
-impl OwnedCommandData {
-    pub fn new<H: CommandHandler>(
+impl<T> OwnedCommandData<T> {
+    pub fn new<H: CommandHandler<T>>(
         name: &str,
         description: &str,
         handler: H,
+        base_state: T,
     ) -> Result<Self, CommandCreateError> {
         let name_c = CString::new(name)?;
         let description_c = CString::new(description)?;
@@ -188,26 +198,28 @@ impl OwnedCommandData {
         Ok(OwnedCommandData {
             id: command_id,
             handler: Box::new(handler),
+            state: RefCell::new(base_state),
         })
     }
 }
 
 #[allow(clippy::cast_possible_wrap)]
 /// Command handler callback
-unsafe extern "C" fn command_handler<H: CommandHandler>(
+unsafe extern "C" fn command_handler<T, H: CommandHandler<T>>(
     _: XPLMCommandRef,
     phase: XPLMCommandPhase,
     refcon: *mut c_void,
 ) -> c_int {
-    let data = refcon.cast::<OwnedCommandData>();
-    let handler: *mut dyn CommandHandler = &mut *(*data).handler;
+    let data = refcon.cast::<OwnedCommandData<T>>();
+    let handler: *mut dyn CommandHandler<T> = &mut *(*data).handler;
     let handler = handler.cast::<H>();
+    let state = (*data).state.get_mut(); // This should hopefully not cause issues. Leaving the check in to avoid UB.
     if phase == xplm_CommandBegin as i32 {
-        (*handler).command_begin();
+        (*handler).command_begin(state);
     } else if phase == xplm_CommandContinue as i32 {
-        (*handler).command_continue();
+        (*handler).command_continue(state);
     } else if phase == xplm_CommandEnd as i32 {
-        (*handler).command_end();
+        (*handler).command_end(state);
     }
     // Prevent other components from handling this equivalent
     0

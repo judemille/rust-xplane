@@ -136,7 +136,7 @@ where
     _phantom: NoSendSync,
 }
 
-#[allow(clippy::missing_fields_in_debug)] // Clippy thinks loop_state is missing. It is not.
+#[allow(clippy::missing_fields_in_debug)] // Clippy thinks _phantom is missing. There is no reason to include it, and a lack of inclusion does not make it non-exhaustive.
 impl<T, C> fmt::Debug for LoopData<T, C>
 where
     C: FlightLoopCallback<T>,
@@ -145,8 +145,8 @@ where
         f.debug_struct("LoopData")
             .field("loop_result", &self.loop_result)
             .field("loop_id", &self.loop_id)
-            .field("callback", &String::from("[callback]"))
-            .field("loop_state", &String::from("[callback state]"))
+            .field("callback", &"[callback]")
+            .field("loop_state", &"[callback state]")
             .finish()
     }
 }
@@ -305,7 +305,7 @@ unsafe extern "C" fn flight_loop_callback<T, C: FlightLoopCallback<T>>(
         since_call: Duration::from_secs_f32(since_last_call),
         since_loop: Duration::from_secs_f32(since_loop),
         counter,
-        state_data: (*loop_data).loop_state.get_mut(),
+        state_data: (*loop_data).loop_state.get_mut(), // If this causes an issue, I would be very surprised, but for the moment I'm leaving the check in.
         result: (*loop_data).loop_result.as_mut().unwrap(), // If we've gotten here, the associated flight loop should be scheduled, and as such
         // have a result that is not None.
     };
