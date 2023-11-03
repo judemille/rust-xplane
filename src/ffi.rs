@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Julia DeMille
-// 
+//
 // Licensed under the EUPL, Version 1.2
-// 
+//
 // You may not use this work except in compliance with the Licence.
 // You should have received a copy of the Licence along with this work. If not, see:
 // <https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12>.
@@ -10,7 +10,9 @@
 //! Foreign function interface utilities
 //!
 
-use std::{iter, os::raw::c_char, str, str::Utf8Error, string::FromUtf8Error};
+use std::{ffi::CString, iter, str::Utf8Error, string::FromUtf8Error};
+
+use core::ffi::c_char;
 
 /// A fixed-length array of characters that can be passed to C functions and converted into a
 /// String
@@ -20,7 +22,6 @@ pub struct StringBuffer {
     bytes: Vec<u8>,
 }
 
-// Why is dead code allowed here?
 #[allow(dead_code)]
 impl StringBuffer {
     /// Creates a new `StringBuffer` with the provided length in bytes. All bytes in the string are
@@ -53,7 +54,7 @@ impl StringBuffer {
     /// An error is returned if the data in this buffer is not valid UTF-8.
     pub fn as_str(&self) -> Result<&str, Utf8Error> {
         let chars_before_null = self.bytes.iter().take_while(|&&c| c != b'\0').count();
-        str::from_utf8(&self.bytes[..chars_before_null])
+        std::str::from_utf8(&self.bytes[..chars_before_null])
     }
 
     /// Converts this buffer into a String
@@ -64,5 +65,18 @@ impl StringBuffer {
     pub fn into_string(self) -> Result<String, FromUtf8Error> {
         let chars_before_null = self.bytes.into_iter().take_while(|&c| c != b'\0');
         String::from_utf8(chars_before_null.collect())
+    }
+}
+
+impl From<StringBuffer> for CString {
+    fn from(StringBuffer { mut bytes }: StringBuffer) -> Self {
+        if let Some(i) = bytes.iter().position(|&b| b == b'\0') {
+            bytes.truncate(i + 1);
+        } else {
+            bytes.reserve_exact(1);
+            bytes.push(b'\0');
+        }
+        bytes.shrink_to_fit();
+        unsafe { CString::from_vec_with_nul_unchecked(bytes) }
     }
 }

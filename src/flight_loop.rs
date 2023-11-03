@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Julia DeMille
-// 
+//
 // Licensed under the EUPL, Version 1.2
-// 
+//
 // You may not use this work except in compliance with the Licence.
 // You should have received a copy of the Licence along with this work. If not, see:
 // <https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12>.
@@ -47,13 +47,9 @@
 //! ```
 //!
 
-use std::{
-    f32, fmt,
-    marker::PhantomData,
-    mem,
-    os::raw::{c_float, c_int, c_void},
-    time::Duration, cell::RefCell,
-};
+use std::{cell::RefCell, f32, fmt, marker::PhantomData, mem, time::Duration};
+
+use core::ffi::{c_float, c_int, c_void};
 
 use xplane_sys;
 
@@ -78,10 +74,10 @@ where
         let mut data = Box::new(LoopData::new(callback, base_state));
         let data_ptr: *mut LoopData<T, C> = &mut *data;
         // Create a flight loop
-        #[allow(clippy::cast_possible_wrap)]
+        #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
         let mut config = xplane_sys::XPLMCreateFlightLoop_t {
             structSize: mem::size_of::<xplane_sys::XPLMCreateFlightLoop_t>() as c_int,
-            phase: xplane_sys::xplm_FlightLoop_Phase_AfterFlightModel as i32,
+            phase: xplane_sys::XPLMFlightLoopPhaseType::AfterFlightModel,
             callbackFunc: Some(flight_loop_callback::<T, C>),
             refcon: data_ptr.cast::<c_void>(),
         };
@@ -307,7 +303,7 @@ unsafe extern "C" fn flight_loop_callback<T, C: FlightLoopCallback<T>>(
         counter,
         state_data: (*loop_data).loop_state.get_mut(), // If this causes an issue, I would be very surprised, but for the moment I'm leaving the check in.
         result: (*loop_data).loop_result.as_mut().unwrap(), // If we've gotten here, the associated flight loop should be scheduled, and as such
-        // have a result that is not None.
+                                                            // have a result that is not None.
     };
     let mut x = make_x();
     (*loop_data).callback.flight_loop(&mut x, &mut state);

@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Julia DeMille
-// 
+//
 // Licensed under the EUPL, Version 1.2
-// 
+//
 // You may not use this work except in compliance with the Licence.
 // You should have received a copy of the Licence along with this work. If not, see:
 // <https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12>.
@@ -12,10 +12,7 @@ use std::{
     string::FromUtf8Error,
 };
 
-use xplane_sys::{
-    xplmType_Data, xplmType_Double, xplmType_Float, xplmType_FloatArray, xplmType_Int,
-    xplmType_IntArray, XPLMDataTypeID,
-};
+use xplane_sys::XPLMDataTypeID;
 
 use crate::ffi::StringBuffer;
 
@@ -180,22 +177,22 @@ pub trait ArrayType: DataType {
 }
 
 macro_rules! impl_type {
-    ($native_type:ty as $sim_type:ident) => {
+    ($native_type:ty as $sim_type:path) => {
         impl DataType for $native_type {
             type Storage = Self;
             fn sim_type() -> XPLMDataTypeID {
-                $sim_type as XPLMDataTypeID
+                $sim_type
             }
             fn to_storage(&self) -> Self::Storage {
                 self.clone()
             }
         }
     };
-    ([$native_type:ty]: array as $sim_type:ident) => {
+    ([$native_type:ty]: array as $sim_type:path) => {
         impl DataType for [$native_type] {
             type Storage = Vec<$native_type>;
             fn sim_type() -> XPLMDataTypeID {
-                $sim_type as XPLMDataTypeID
+                $sim_type
             }
             fn to_storage(&self) -> Self::Storage {
                 self.to_vec()
@@ -207,17 +204,17 @@ macro_rules! impl_type {
     };
 }
 
-impl_type!(bool as xplmType_Int);
-impl_type!(u8 as xplmType_Int);
-impl_type!(i8 as xplmType_Int);
-impl_type!(u16 as xplmType_Int);
-impl_type!(i16 as xplmType_Int);
-impl_type!(u32 as xplmType_Int);
-impl_type!(i32 as xplmType_Int);
-impl_type!(f32 as xplmType_Float);
-impl_type!(f64 as xplmType_Double);
-impl_type!([i32]: array as xplmType_IntArray);
-impl_type!([u32]: array as xplmType_IntArray);
-impl_type!([f32]: array as xplmType_FloatArray);
-impl_type!([u8]: array as xplmType_Data);
-impl_type!([i8]: array as xplmType_Data);
+impl_type!(bool as XPLMDataTypeID::Int);
+impl_type!(u8 as XPLMDataTypeID::Int);
+impl_type!(i8 as XPLMDataTypeID::Int);
+impl_type!(u16 as XPLMDataTypeID::Int);
+impl_type!(i16 as XPLMDataTypeID::Int);
+impl_type!(u32 as XPLMDataTypeID::Int);
+impl_type!(i32 as XPLMDataTypeID::Int);
+impl_type!(f32 as XPLMDataTypeID::Float);
+impl_type!(f64 as XPLMDataTypeID::Double);
+impl_type!([i32]: array as XPLMDataTypeID::IntArray);
+impl_type!([u32]: array as XPLMDataTypeID::IntArray);
+impl_type!([f32]: array as XPLMDataTypeID::FloatArray);
+impl_type!([u8]: array as XPLMDataTypeID::Data);
+impl_type!([i8]: array as XPLMDataTypeID::Data);

@@ -1,20 +1,18 @@
 // Copyright (c) 2023 Julia DeMille
-// 
+//
 // Licensed under the EUPL, Version 1.2
-// 
+//
 // You may not use this work except in compliance with the Licence.
 // You should have received a copy of the Licence along with this work. If not, see:
 // <https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12>.
 // See the Licence for the specific language governing permissions and limitations under the Licence.
 
-use std::{
-    mem,
-    ops::Deref,
-    os::raw::{c_char, c_int, c_void},
-    ptr,
-};
+use core::ffi::{c_char, c_int, c_void};
+use std::{mem, ops::Deref, ptr};
 
-use xplane_sys;
+use xplane_sys::{
+    self, XPLMCursorStatus, XPLMKeyFlags, XPLMMouseStatus, XPLMWindowDecoration, XPLMWindowLayer,
+};
 
 use crate::make_x;
 
@@ -29,7 +27,7 @@ pub enum Cursor {
     /// X-Plane draws an arrow cursor (not any other cursor type)
     Arrow,
     /// X-Plane hides the cursor. The plugin should draw its own cursor.
-    None,
+    Hide,
 }
 
 #[allow(clippy::cast_possible_wrap)]
@@ -37,9 +35,9 @@ impl Cursor {
     /// Converts this cursor into an `XPLMCursorStatus`
     fn as_xplm(&self) -> xplane_sys::XPLMCursorStatus {
         match *self {
-            Cursor::Default => xplane_sys::xplm_CursorDefault as xplane_sys::XPLMCursorStatus,
-            Cursor::Arrow => xplane_sys::xplm_CursorArrow as xplane_sys::XPLMCursorStatus,
-            Cursor::None => xplane_sys::xplm_CursorHidden as xplane_sys::XPLMCursorStatus,
+            Cursor::Default => XPLMCursorStatus::Default,
+            Cursor::Arrow => XPLMCursorStatus::Arrow,
+            Cursor::Hide => XPLMCursorStatus::Hidden,
         }
     }
 }
@@ -127,8 +125,8 @@ impl Window {
             handleCursorFunc: Some(window_cursor),
             handleMouseWheelFunc: Some(window_scroll),
             refcon: window_ptr.cast(),
-            decorateAsFloatingWindow: 0,
-            layer: xplane_sys::xplm_WindowLayerFloatingWindows as _,
+            decorateAsFloatingWindow: XPLMWindowDecoration::None,
+            layer: XPLMWindowLayer::FloatingWindows,
             handleRightClickFunc: None,
         };
 
@@ -228,7 +226,7 @@ unsafe extern "C" fn window_mouse(
     refcon: *mut c_void,
 ) -> c_int {
     let window = refcon.cast::<Window>();
-    if let Some(action) = MouseAction::from_xplm(status) {
+    if let Ok(action) = MouseAction::try_from(status) {
         let position = Point::from((x, y));
         let event = MouseEvent::new(position, action);
         let propagate = (*window).delegate.mouse_event(&*window, event);
@@ -573,20 +571,18 @@ impl KeyEvent {
             b'\t' | b' '..=b'~' => Some(key as u8 as char),
             _ => None,
         };
-        let action = if flags & xplane_sys::xplm_DownFlag as ::xplane_sys::XPLMKeyFlags != 0 {
+        let action = if flags.field_true(XPLMKeyFlags::Down) {
             KeyAction::Press
-        } else if flags & xplane_sys::xplm_UpFlag as ::xplane_sys::XPLMKeyFlags != 0 {
+        } else if flags.field_true(XPLMKeyFlags::Up) {
             KeyAction::Release
         } else {
             return Err(KeyEventError::InvalidFlags(flags));
         };
-        let control_pressed =
-            flags & xplane_sys::xplm_ControlFlag as ::xplane_sys::XPLMKeyFlags != 0;
-        let shift_pressed = flags & xplane_sys::xplm_ShiftFlag as ::xplane_sys::XPLMKeyFlags != 0;
-        let option_pressed =
-            flags & xplane_sys::xplm_OptionAltFlag as ::xplane_sys::XPLMKeyFlags != 0;
+        let control_pressed = flags.field_true(XPLMKeyFlags::Control);
+        let shift_pressed = flags.field_true(XPLMKeyFlags::Shift);
+        let alt_pressed = flags.field_true(XPLMKeyFlags::OptionAlt);
         let Some(key) = Key::from_xplm(virtual_key) else {
-            return Err(KeyEventError::InvalidKey(virtual_key))
+            return Err(KeyEventError::InvalidKey(virtual_key));
         };
 
         Ok(KeyEvent {
@@ -594,7 +590,7 @@ impl KeyEvent {
             key,
             action,
             control_pressed,
-            alt_pressed: option_pressed,
+            alt_pressed,
             shift_pressed,
         })
     }
@@ -654,17 +650,14 @@ pub enum MouseAction {
     Up,
 }
 
-impl MouseAction {
-    #[allow(clippy::cast_possible_wrap)]
-    fn from_xplm(status: xplane_sys::XPLMMouseStatus) -> Option<MouseAction> {
-        if status == xplane_sys::xplm_MouseDown as xplane_sys::XPLMMouseStatus {
-            Some(MouseAction::Down)
-        } else if status == xplane_sys::xplm_MouseDrag as xplane_sys::XPLMMouseStatus {
-            Some(MouseAction::Drag)
-        } else if status == xplane_sys::xplm_MouseUp as xplane_sys::XPLMMouseStatus {
-            Some(MouseAction::Up)
-        } else {
-            None
+impl TryFrom<XPLMMouseStatus> for MouseAction {
+    type Error = XPLMMouseStatus;
+    fn try_from(value: XPLMMouseStatus) -> Result<Self, Self::Error> {
+        match value {
+            XPLMMouseStatus::Down => Ok(MouseAction::Down),
+            XPLMMouseStatus::Drag => Ok(MouseAction::Drag),
+            XPLMMouseStatus::Up => Ok(MouseAction::Up),
+            _ => Err(value),
         }
     }
 }

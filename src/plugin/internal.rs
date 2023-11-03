@@ -1,18 +1,14 @@
 // Copyright (c) 2023 Julia DeMille
-// 
+//
 // Licensed under the EUPL, Version 1.2
-// 
+//
 // You may not use this work except in compliance with the Licence.
 // You should have received a copy of the Licence along with this work. If not, see:
 // <https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12>.
 // See the Licence for the specific language governing permissions and limitations under the Licence.
 
-use std::{
-    os::raw::{c_char, c_int, c_void},
-    panic,
-    panic::AssertUnwindSafe,
-    ptr,
-};
+use core::ffi::{c_char, c_int, c_void};
+use std::{panic, panic::AssertUnwindSafe, ptr};
 
 use crate::make_x;
 
@@ -32,12 +28,12 @@ pub struct PluginData<P> {
     pub panicked: bool,
 }
 
-/// Implements the XPluginStart callback
+/// Implements the `XPluginStart` callback
 ///
 /// This reduces the amount of code in the `xplane_plugin` macro.
 ///
 /// data is a reference to a `PluginData` object where the created plugin will be stored.
-/// The other parameters are the same as for XPluginStart.
+/// The other parameters are the same as for `XPluginStart`.
 ///
 /// This function tries to create and allocate a plugin. On success, it stores a pointer to the
 /// plugin in data.plugin and returns 1. If the plugin fails to start, it stores a null pointer
@@ -82,7 +78,7 @@ where
     })
 }
 
-/// Implements the XPluginStop callback
+/// Implements the `XPluginStop` callback
 ///
 /// This function never unwinds. It catches any unwind that may occur.
 pub unsafe fn xplugin_stop<P>(data: &mut PluginData<P>)
@@ -109,7 +105,7 @@ where
     }
 }
 
-/// Implements the XPluginEnable callback
+/// Implements the `XPluginEnable` callback
 ///
 /// This function never unwinds. It catches any unwind that may occur.
 pub unsafe fn xplugin_enable<P>(data: &mut PluginData<P>) -> c_int
@@ -123,7 +119,7 @@ where
         let mut x = make_x();
         let unwind =
             panic::catch_unwind(AssertUnwindSafe(|| match (*data.plugin).enable(&mut x) {
-                Ok(_) => 1,
+                Ok(()) => 1,
                 Err(e) => {
                     debugln!(x, "Plugin failed to enable: {}", e).unwrap(); // This string should be valid.
                     0
@@ -137,7 +133,7 @@ where
     }
 }
 
-/// Implements the XPluginDisable callback
+/// Implements the `XPluginDisable` callback
 ///
 /// This function never unwinds. It catches any unwind that may occur.
 pub unsafe fn xplugin_disable<P>(data: &mut PluginData<P>)
@@ -156,6 +152,7 @@ where
     }
 }
 
+/// Implements the `XPluginReceiveMessage` callback
 pub unsafe fn xplugin_receive_message<P>(
     data: &mut PluginData<P>,
     from: c_int,

@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Julia DeMille
-// 
+//
 // Licensed under the EUPL, Version 1.2
-// 
+//
 // You may not use this work except in compliance with the Licence.
 // You should have received a copy of the Licence along with this work. If not, see:
 // <https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12>.
@@ -14,10 +14,12 @@
 
 //! Bindings to the X-Plane plugin SDK
 
+use core::ffi::c_void;
 use flight_loop::{FlightLoop, FlightLoopCallback};
 use std::{
     ffi::{CString, NulError},
     marker::PhantomData,
+    ptr,
 };
 use xplane_sys::XPLMDebugString;
 
@@ -31,12 +33,13 @@ mod plugin_macro;
 /// Utilities that the `xplane_plugin` macro-generated code uses
 mod internal;
 
+/// Avionics
+#[cfg(feature = "XPLM400")]
+pub mod avionics;
 /// Commands
 pub mod command;
 /// Datarefs
 pub mod data;
-/// Low-level drawing callbacks
-pub mod draw;
 /// Error detection
 pub mod error;
 /// SDK feature management
@@ -44,7 +47,6 @@ pub mod feature;
 use feature::FeatureAPI;
 
 /// Flight loop callbacks
-// TODO: Flight loop implementation that supports SDK 1.0
 pub mod flight_loop;
 /// 2D user interface geometry
 pub mod geometry;
@@ -131,8 +133,7 @@ macro_rules! debugln {
 }
 
 /// Attempts to locate a symbol. If it exists, returns a pointer to it
-pub fn find_symbol<S: Into<String>>(name: S) -> *mut std::os::raw::c_void {
-    use std::ptr;
+pub fn find_symbol<S: Into<String>>(name: S) -> *mut c_void {
     match std::ffi::CString::new(name.into()) {
         Ok(name_c) => unsafe { xplane_sys::XPLMFindSymbol(name_c.as_ptr()) },
         Err(_) => ptr::null_mut(),

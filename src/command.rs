@@ -7,17 +7,17 @@
 // <https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12>.
 // See the Licence for the specific language governing permissions and limitations under the Licence.
 
+use core::ffi::{c_int, c_void};
 use std::{
     cell::RefCell,
     ffi::{CString, NulError},
     marker::PhantomData,
-    os::raw::{c_int, c_void},
 };
 
 use xplane_sys::{
-    xplm_CommandBegin, xplm_CommandContinue, xplm_CommandEnd, XPLMCommandBegin,
-    XPLMCommandCallback_f, XPLMCommandEnd, XPLMCommandOnce, XPLMCommandPhase, XPLMCommandRef,
-    XPLMCreateCommand, XPLMFindCommand, XPLMRegisterCommandHandler, XPLMUnregisterCommandHandler,
+    XPLMCommandBegin, XPLMCommandCallback_f, XPLMCommandEnd, XPLMCommandOnce, XPLMCommandPhase,
+    XPLMCommandRef, XPLMCreateCommand, XPLMFindCommand, XPLMRegisterCommandHandler,
+    XPLMUnregisterCommandHandler,
 };
 
 use crate::NoSendSync;
@@ -214,11 +214,11 @@ unsafe extern "C" fn command_handler<T, H: CommandHandler<T>>(
     let handler: *mut dyn CommandHandler<T> = &mut *(*data).handler;
     let handler = handler.cast::<H>();
     let state = (*data).state.get_mut(); // This should hopefully not cause issues. Leaving the check in to avoid UB.
-    if phase == xplm_CommandBegin as i32 {
+    if phase == XPLMCommandPhase::Begin {
         (*handler).command_begin(state);
-    } else if phase == xplm_CommandContinue as i32 {
+    } else if phase == XPLMCommandPhase::Continue {
         (*handler).command_continue(state);
-    } else if phase == xplm_CommandEnd as i32 {
+    } else if phase == XPLMCommandPhase::End {
         (*handler).command_end(state);
     }
     // Prevent other components from handling this equivalent

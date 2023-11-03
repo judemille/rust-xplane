@@ -1,22 +1,21 @@
 // Copyright (c) 2023 Julia DeMille
-// 
+//
 // Licensed under the EUPL, Version 1.2
-// 
+//
 // You may not use this work except in compliance with the Licence.
 // You should have received a copy of the Licence along with this work. If not, see:
 // <https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12>.
 // See the Licence for the specific language governing permissions and limitations under the Licence.
 
+use core::ffi::{c_int, c_void};
 use std::{
     cell::{Cell, RefCell},
     ffi::{CString, NulError},
-    fmt,
-    os::raw::{c_int, c_void},
-    ptr,
+    fmt, ptr,
     rc::Rc,
 };
 
-use xplane_sys;
+use xplane_sys::XPLMMenuCheck;
 
 /// Something that can be added to a menu
 #[derive(Debug, Clone)]
@@ -94,7 +93,7 @@ impl From<Rc<Separator>> for Item {
 
 /// A menu, which contains zero or more items
 ///
-// Invariant: No RefCell is borrowed outside functions of this struct
+// Invariant: No [`RefCell`] is borrowed outside functions of this struct
 #[derive(Debug)]
 pub struct Menu {
     /// The name of this menu
@@ -144,7 +143,7 @@ impl Menu {
         Ok(())
     }
     /// Adds a child to this menu
-    /// The child argument may be a Menu, `ActionItem`, `CheckItem`, or Separator,
+    /// The child argument may be a [`Menu`], [`ActionItem`], [`CheckItem`], or [`Separator`],
     /// or an Rc containing one of these types.
     pub fn add_child<R, C>(&self, child: R)
     where
@@ -362,7 +361,7 @@ impl ActionItem {
                 0,
             );
             // Ensure item is not checkable
-            xplane_sys::XPLMCheckMenuItem(parent_id, index, xplane_sys::xplm_Menu_NoCheck as c_int);
+            xplane_sys::XPLMCheckMenuItem(parent_id, index, XPLMMenuCheck::NoCheck);
             index
         };
         self.in_menu.set(Some(InMenu::new(parent_id, index)));
@@ -456,23 +455,22 @@ impl CheckItem {
         if let Some(in_menu) = self.in_menu.get() {
             // Update from X-Plane
             unsafe {
-                let mut check_state = xplane_sys::xplm_Menu_NoCheck as xplane_sys::XPLMMenuCheck;
+                let mut check_state = XPLMMenuCheck::NoCheck;
                 xplane_sys::XPLMCheckMenuItemState(
                     in_menu.parent,
                     in_menu.index as c_int,
                     &mut check_state,
                 );
-                if check_state == xplane_sys::xplm_Menu_NoCheck as xplane_sys::XPLMMenuCheck {
+                if check_state == XPLMMenuCheck::NoCheck {
                     self.checked.set(false);
-                } else if check_state == xplane_sys::xplm_Menu_Checked as xplane_sys::XPLMMenuCheck
-                {
+                } else if check_state == XPLMMenuCheck::Checked {
                     self.checked.set(true);
                 } else {
                     // Unexpected state, correct
                     xplane_sys::XPLMCheckMenuItem(
                         in_menu.parent,
                         in_menu.index as c_int,
-                        xplane_sys::xplm_Menu_NoCheck as xplane_sys::XPLMMenuCheck,
+                        XPLMMenuCheck::NoCheck,
                     );
                     self.checked.set(false);
                 }
@@ -593,11 +591,11 @@ where
 }
 
 /// Maps true->checked and false->unchecked
-fn check_state(checked: bool) -> xplane_sys::XPLMMenuCheck {
+fn check_state(checked: bool) -> XPLMMenuCheck {
     if checked {
-        xplane_sys::xplm_Menu_Checked as xplane_sys::XPLMMenuCheck
+        XPLMMenuCheck::Checked
     } else {
-        xplane_sys::xplm_Menu_Unchecked as xplane_sys::XPLMMenuCheck
+        XPLMMenuCheck::Unchecked
     }
 }
 

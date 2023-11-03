@@ -1,50 +1,21 @@
 // Copyright (c) 2023 Julia DeMille
-// 
+//
 // Licensed under the EUPL, Version 1.2
-// 
+//
 // You may not use this work except in compliance with the Licence.
 // You should have received a copy of the Licence along with this work. If not, see:
 // <https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12>.
 // See the Licence for the specific language governing permissions and limitations under the Licence.
 
+use core::ffi::c_int;
 use std::{
     ffi::{CStr, CString},
-    os::raw::{c_char, c_int},
-    path::PathBuf,
-    ptr,
+    marker::PhantomData,
 };
 
-use xplane_sys;
+use xplane_sys::{self, XPLMGetPluginInfo};
 
-/// Looks for a plugin with the provided signature and returns it if it exists
-#[must_use]
-pub fn plugin_with_signature(signature: &str) -> Option<Plugin> {
-    match CString::new(signature) {
-        Ok(signature) => {
-            let plugin_id = unsafe { xplane_sys::XPLMFindPluginBySignature(signature.as_ptr()) };
-            if plugin_id == xplane_sys::XPLM_NO_PLUGIN_ID {
-                None
-            } else {
-                Some(Plugin(plugin_id))
-            }
-        }
-        Err(_) => None,
-    }
-}
-
-/// Returns the plugin that is currently running
-/// # Panics
-/// Panics if you've somehow managed to call this without being in a plugin (or X-Plane has no ID for your plugin, somehow). Congratulations.
-#[must_use]
-pub fn this_plugin() -> Plugin {
-    let plugin_id = unsafe { xplane_sys::XPLMGetMyID() };
-    assert_ne!(
-        plugin_id,
-        xplane_sys::XPLM_NO_PLUGIN_ID,
-        "XPLMGetMyId() returned no plugin ID"
-    );
-    Plugin(plugin_id)
-}
+use crate::{ffi::StringBuffer, NoSendSync};
 
 /// Returns an iterator over all loaded plugins
 #[must_use]
@@ -53,6 +24,7 @@ pub fn all_plugins() -> Plugins {
         next: 0,
         // Subtract 1 because X-Plane is considered a plugin
         count: unsafe { xplane_sys::XPLMCountPlugins() - 1 },
+        _phantom: PhantomData,
     }
 }
 
@@ -64,6 +36,7 @@ pub struct Plugins {
     next: c_int,
     /// The total number of plugins available
     count: c_int,
+    _phantom: NoSendSync,
 }
 
 #[allow(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
@@ -71,13 +44,13 @@ impl Iterator for Plugins {
     type Item = Plugin;
     fn next(&mut self) -> Option<Self::Item> {
         if self.next < self.count {
-            let plugin = Plugin(unsafe { xplane_sys::XPLMGetNthPlugin(self.next) });
+            let id = unsafe { xplane_sys::XPLMGetNthPlugin(self.next) };
             self.next += 1;
             // Skip past X-Plane
-            if plugin.0 == xplane_sys::XPLM_PLUGIN_XPLANE as xplane_sys::XPLMPluginID {
+            if id == xplane_sys::XPLM_PLUGIN_XPLANE as xplane_sys::XPLMPluginID {
                 self.next()
             } else {
-                Some(plugin)
+                Some(unsafe { get_plugin(id) })
             }
         } else {
             None
@@ -92,89 +65,104 @@ impl Iterator for Plugins {
 impl ExactSizeIterator for Plugins {}
 
 /// Another plugin running in X-Plane (or this plugin)
-pub struct Plugin(xplane_sys::XPLMPluginID);
+pub struct Plugin {
+    id: xplane_sys::XPLMPluginID,
+    name: CString,
+    file_path: CString,
+    signature: CString,
+    description: CString,
+    _phantom: NoSendSync,
+}
 
 impl Plugin {
+    /// Looks for a plugin with the provided signature and returns it if it exists
+    #[must_use]
+    pub fn from_signature(signature: &str) -> Option<Self> {
+        let signature = CString::new(signature).ok()?;
+        let plugin_id = unsafe { xplane_sys::XPLMFindPluginBySignature(signature.as_ptr()) };
+        if plugin_id == xplane_sys::XPLM_NO_PLUGIN_ID {
+            None
+        } else {
+            Some(unsafe { get_plugin(plugin_id) })
+        }
+    }
+
+    /// Returns the plugin that is currently running
+    /// # Panics
+    /// Panics if you've somehow managed to call this without being in a plugin (or X-Plane has no ID for your plugin, somehow). Congratulations.
+    #[must_use]
+    pub fn this_plugin() -> Plugin {
+        let plugin_id = unsafe { xplane_sys::XPLMGetMyID() };
+        assert_ne!(
+            plugin_id,
+            xplane_sys::XPLM_NO_PLUGIN_ID,
+            "XPLMGetMyId() returned no plugin ID. Please get in touch -- this should be impossible."
+        );
+        unsafe { get_plugin(plugin_id) }
+    }
+
     /// Returns the name of this plugin
     #[must_use]
-    pub fn name(&self) -> String {
-        read_to_buffer(|buffer| unsafe {
-            xplane_sys::XPLMGetPluginInfo(
-                self.0,
-                buffer,
-                ptr::null_mut(),
-                ptr::null_mut(),
-                ptr::null_mut(),
-            );
-        })
+    pub fn name_c(&self) -> &CStr {
+        &self.name
     }
     /// Returns the signature of this plugin
     #[must_use]
-    pub fn signature(&self) -> String {
-        read_to_buffer(|buffer| unsafe {
-            xplane_sys::XPLMGetPluginInfo(
-                self.0,
-                ptr::null_mut(),
-                ptr::null_mut(),
-                buffer,
-                ptr::null_mut(),
-            );
-        })
+    pub fn signature_c(&self) -> &CStr {
+        &self.signature
     }
     /// Returns the description of this plugin
     #[must_use]
-    pub fn description(&self) -> String {
-        read_to_buffer(|buffer| unsafe {
-            xplane_sys::XPLMGetPluginInfo(
-                self.0,
-                ptr::null_mut(),
-                ptr::null_mut(),
-                ptr::null_mut(),
-                buffer,
-            );
-        })
+    pub fn description_c(&self) -> &CStr {
+        &self.description
     }
     /// Returns the absolute path to this plugin
     #[must_use]
-    pub fn path(&self) -> PathBuf {
-        let os_path = read_to_buffer(|buffer| unsafe {
-            xplane_sys::XPLMGetPluginInfo(
-                self.0,
-                ptr::null_mut(),
-                buffer,
-                ptr::null_mut(),
-                ptr::null_mut(),
-            );
-        });
-        PathBuf::from(os_path)
+    pub fn path_c(&self) -> &CStr {
+        &self.file_path
     }
 
     /// Returns true if this plugin is enabled
     #[must_use]
-    pub fn enabled(&self) -> bool {
-        unsafe { xplane_sys::XPLMIsPluginEnabled(self.0) == 1 }
+    pub fn enabled(&mut self) -> bool {
+        unsafe { xplane_sys::XPLMIsPluginEnabled(self.id) == 1 }
     }
 
     /// Enables or disables the plugin
-    pub fn set_enabled(&self, enabled: bool) {
+    pub fn set_enabled(&mut self, enabled: bool) {
         if enabled {
             unsafe {
-                xplane_sys::XPLMEnablePlugin(self.0);
+                xplane_sys::XPLMEnablePlugin(self.id);
             }
         } else {
             unsafe {
-                xplane_sys::XPLMDisablePlugin(self.0);
+                xplane_sys::XPLMDisablePlugin(self.id);
             }
         }
     }
 }
 
-/// Allocates a buffer of at least 256 bytes and passes it to the provided callback, then tries
-/// to convert it into a String and returns the result
-fn read_to_buffer<F: Fn(*mut c_char)>(read_callback: F) -> String {
-    // Create a buffer of 256 nulls
-    let mut buffer: [c_char; 256] = [b'\0' as c_char; 256];
-    read_callback(buffer.as_mut_ptr());
-    let cstr = unsafe { CStr::from_ptr(buffer.as_ptr()) };
-    cstr.to_string_lossy().into_owned()
+/// Retrieve data about a given plugin based on its ID from X-Plane.
+unsafe fn get_plugin(id: xplane_sys::XPLMPluginID) -> Plugin {
+    let mut name = StringBuffer::new(257);
+    let mut fp = StringBuffer::new(257);
+    let mut sig = StringBuffer::new(257);
+    let mut desc = StringBuffer::new(257);
+    unsafe {
+        XPLMGetPluginInfo(
+            id,
+            name.as_mut_ptr(),
+            fp.as_mut_ptr(),
+            sig.as_mut_ptr(),
+            desc.as_mut_ptr(),
+        );
+    }
+    Plugin {
+        id,
+        name: name.into(),
+        file_path: fp.into(),
+        signature: sig.into(),
+        description: desc.into(),
+        _phantom: PhantomData,
+    }
 }

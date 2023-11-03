@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Julia DeMille
-// 
+//
 // Licensed under the EUPL, Version 1.2
-// 
+//
 // You may not use this work except in compliance with the Licence.
 // You should have received a copy of the Licence along with this work. If not, see:
 // <https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12>.
@@ -12,8 +12,9 @@ use std::{
     ffi::{CStr, CString, NulError},
     fmt,
     marker::PhantomData,
-    os::raw::{c_char, c_int, c_void},
 };
+
+use core::ffi::{c_char, c_void};
 
 use xplane_sys;
 
@@ -57,7 +58,7 @@ impl Feature {
         // Because this name was either copied from C with XPLMEnumerateFeatures or
         // checked with XPLMHasFeature, it must be valid as a C string.
         let name_c = CString::new(&*self.name).unwrap();
-        unsafe { xplane_sys::XPLMEnableFeature(name_c.as_ptr(), enable as c_int) }
+        unsafe { xplane_sys::XPLMEnableFeature(name_c.as_ptr(), i32::from(enable)) }
     }
 }
 

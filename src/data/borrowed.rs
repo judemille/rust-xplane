@@ -1,16 +1,16 @@
 // Copyright (c) 2023 Julia DeMille
-// 
+//
 // Licensed under the EUPL, Version 1.2
-// 
+//
 // You may not use this work except in compliance with the Licence.
 // You should have received a copy of the Licence along with this work. If not, see:
 // <https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12>.
 // See the Licence for the specific language governing permissions and limitations under the Licence.
 
+use core::ffi::c_void;
 use std::{
     ffi::{CString, NulError},
     marker::PhantomData,
-    os::raw::c_void,
     ptr,
 };
 
@@ -50,7 +50,7 @@ impl<T: DataType + ?Sized> DataRef<T, ReadOnly> {
         }
 
         let actual_type = unsafe { XPLMGetDataRefTypes(dataref) };
-        if actual_type & expected_type == 0 {
+        if actual_type.field_true(expected_type) {
             Err(FindError::WrongType)
         } else {
             Ok(DataRef {
@@ -80,38 +80,15 @@ impl<T: DataType + ?Sized> DataRef<T, ReadOnly> {
 
 /// Creates a `DataType` implementation, `DataRef::get` and `DataRef::set` for a type
 macro_rules! dataref_type {
-    // Basic case
-    (
-        $(#[$meta:meta])*
-        dataref type {
-            native $native_type:ty;
-            sim $sim_type:ident as $sim_native_type:ty;
-            read $read_fn:ident;
-            write $write_fn:ident;
-        }
-    ) => {
-        impl<A> DataRead<$native_type> for DataRef<$native_type, A> {
-            fn get(&self) -> $native_type {
-                unsafe { $read_fn(self.id) as $native_type }
-            }
-        }
-        impl DataReadWrite<$native_type> for DataRef<$native_type, ReadWrite> {
-            fn set(&mut self, value: $native_type) {
-                unsafe { $write_fn(self.id, value as $sim_native_type) }
-            }
-        }
-    };
     // Array case
     (
         $(#[$meta:meta])*
-        dataref array type {
-            native [$native_type:ty];
-            sim $sim_type:ident as [$sim_native_type:ty];
-            $(#[$read_meta:meta])*
-            read $read_fn:ident;
-            $(#[$write_meta:meta])*
-            write $write_fn:ident;
-        }
+        native [$native_type:ty];
+        sim $sim_type:ident as [$sim_native_type:ty];
+        $(#[$read_meta:meta])*
+        read $read_fn:ident;
+        $(#[$write_meta:meta])*
+        write $write_fn:ident;
     ) => {
         impl<A> ArrayRead<[$native_type]> for DataRef<[$native_type], A> {
             #[allow(trivial_casts)]
@@ -143,112 +120,119 @@ macro_rules! dataref_type {
             }
         }
     };
+    // Basic case
+    (
+        $(#[$meta:meta])*
+        native $native_type:ty;
+        sim $sim_type:ident as $sim_native_type:ty;
+        read $read_fn:ident;
+        write $write_fn:ident;
+    ) => {
+        impl<A> DataRead<$native_type> for DataRef<$native_type, A> {
+            fn get(&self) -> $native_type {
+                unsafe { $read_fn(self.id) as $native_type }
+            }
+        }
+        impl DataReadWrite<$native_type> for DataRef<$native_type, ReadWrite> {
+            fn set(&mut self, value: $native_type) {
+                unsafe { $write_fn(self.id, value as $sim_native_type) }
+            }
+        }
+    };
 }
 
 dataref_type! {
-    dataref type {
-        native u8;
-        sim xplmType_Int as i32;
-        read XPLMGetDatai;
-        write XPLMSetDatai;
-    }
+    native u8;
+    sim xplmType_Int as i32;
+    read XPLMGetDatai;
+    write XPLMSetDatai;
 }
+
 dataref_type! {
-    dataref type {
-        native i8;
-        sim xplmType_Int as i32;
-        read XPLMGetDatai;
-        write XPLMSetDatai;
-    }
+    native i8;
+    sim xplmType_Int as i32;
+    read XPLMGetDatai;
+    write XPLMSetDatai;
 }
+
 dataref_type! {
-    dataref type {
-        native u16;
-        sim xplmType_Int as i32;
-        read XPLMGetDatai;
-        write XPLMSetDatai;
-    }
+    native u16;
+    sim xplmType_Int as i32;
+    read XPLMGetDatai;
+    write XPLMSetDatai;
 }
+
 dataref_type! {
-    dataref type {
-        native i16;
-        sim xplmType_Int as i32;
-        read XPLMGetDatai;
-        write XPLMSetDatai;
-    }
+    native i16;
+    sim xplmType_Int as i32;
+    read XPLMGetDatai;
+    write XPLMSetDatai;
+
 }
+
 dataref_type! {
-    dataref type {
-        native u32;
-        sim xplmType_Int as i32;
-        read XPLMGetDatai;
-        write XPLMSetDatai;
-    }
+    native u32;
+    sim xplmType_Int as i32;
+    read XPLMGetDatai;
+    write XPLMSetDatai;
 }
+
 dataref_type! {
-    dataref type {
-        native i32;
-        sim xplmType_Int as i32;
-        read XPLMGetDatai;
-        write XPLMSetDatai;
-    }
+    native i32;
+    sim xplmType_Int as i32;
+    read XPLMGetDatai;
+    write XPLMSetDatai;
 }
+
 dataref_type! {
-    dataref type {
-        native f32;
-        sim xplmType_Float as f32;
-        read XPLMGetDataf;
-        write XPLMSetDataf;
-    }
+    native f32;
+    sim xplmType_Float as f32;
+    read XPLMGetDataf;
+    write XPLMSetDataf;
 }
+
 dataref_type! {
-    dataref type {
-        native f64;
-        sim xplmType_Double as f64;
-        read XPLMGetDatad;
-        write XPLMSetDatad;
-    }
+    native f64;
+    sim xplmType_Double as f64;
+    read XPLMGetDatad;
+    write XPLMSetDatad;
 }
+
 dataref_type! {
-    dataref array type {
-        native [i32];
-        sim xplmType_IntArray as [i32];
-        read XPLMGetDatavi;
-        write XPLMSetDatavi;
-    }
+    native [i32];
+    sim xplmType_IntArray as [i32];
+    read XPLMGetDatavi;
+    write XPLMSetDatavi;
 }
+
 dataref_type! {
-    dataref array type {
-        native [u32];
-        sim xplmType_IntArray as [i32];
-        read XPLMGetDatavi;
-        write XPLMSetDatavi;
-    }
+    native [u32];
+    sim xplmType_IntArray as [i32];
+    read XPLMGetDatavi;
+    write XPLMSetDatavi;
 }
+
 dataref_type! {
-    dataref array type {
-        native [f32];
-        sim xplmType_FloatArray as [f32];
-        read XPLMGetDatavf;
-        write XPLMSetDatavf;
-    }
+    native [f32];
+    sim xplmType_FloatArray as [f32];
+    read XPLMGetDatavf;
+    write XPLMSetDatavf;
 }
+
 dataref_type! {
-    dataref array type {
-        native [u8];
-        sim xplmType_Data as [c_void];
-        read XPLMGetDatab;
-        write XPLMSetDatab;
-    }
+    native [u8];
+    sim xplmType_Data as [c_void];
+    read XPLMGetDatab;
+    write XPLMSetDatab;
 }
+
 dataref_type! {
-    dataref array type {
-        native [i8];
-        sim xplmType_Data as [c_void];
-        read XPLMGetDatab;
-        write XPLMSetDatab;
-    }
+    native [i8];
+    sim xplmType_Data as [c_void];
+    read XPLMGetDatab;
+    write XPLMSetDatab;
 }
+
 impl<A> DataRead<bool> for DataRef<bool, A> {
     fn get(&self) -> bool {
         let int_value = unsafe { XPLMGetDatai(self.id) };
