@@ -9,7 +9,6 @@
 
 use std::ffi::{CString, NulError};
 use std::mem::{self, MaybeUninit};
-use std::string::FromUtf8Error;
 
 use snafu::prelude::*;
 
@@ -24,9 +23,6 @@ pub enum WeatherError {
     #[snafu(context(false))]
     #[snafu(display("The passed in string contained a NUL byte."))]
     Null { source: NulError },
-    #[snafu(context(false))]
-    #[snafu(display("X-Plane returned a string that is invalid UTF-8."))]
-    InvalidUtf8 { source: FromUtf8Error },
     #[snafu(display(
         "Could not get detailed weather at the location: lat: {lat}, lon: {lon}, alt: {alt_m} m."
     ))]
@@ -42,6 +38,8 @@ impl WeatherApi {
     /// # Errors
     /// Returns an error if the aerodrome ID contains a null byte, or if the METAR returned
     /// by X-Plane is not valid UTF-8. X-Plane should be giving UTF-8, per the developers.
+    /// # Panics
+    /// Panics if X-Plane provides invalid UTF-8. This should be impossible.
     #[allow(clippy::cast_sign_loss)]
     pub fn get_aerodrome_metar<S: Into<Vec<u8>>>(ad: S) -> Result<String, WeatherError> {
         let ad = CString::new(ad)?;
@@ -51,7 +49,7 @@ impl WeatherApi {
         };
         let buffer =
             Vec::from(unsafe { mem::transmute::<[i8; 150], [u8; 150]>(get_metar_out.buffer) });
-        Ok(String::from_utf8(buffer)?)
+        Ok(String::from_utf8(buffer).unwrap())
     }
 
     /// Get the weather at the given location.

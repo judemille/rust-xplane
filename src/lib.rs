@@ -21,12 +21,14 @@
 //! the philosophy being that if something has gone critically wrong while the plugin is running,
 //! it probably affects the integrity of the simulator, and should prevent it running.
 
+#[cfg(feature = "XPLM400")]
 use avionics::AvionicsAPI;
 use command::CommandAPI;
 use core::ffi::c_void;
 use data::DataAPI;
 use flight_loop::{FlightLoop, FlightLoopCallback, FlightLoopPhase};
 use menu::MenuAPI;
+use paths::PathApi;
 use std::{
     ffi::{CString, NulError},
     marker::PhantomData,
@@ -36,8 +38,6 @@ use xplane_sys::XPLMDebugString;
 
 /// FFI utilities
 mod ffi;
-/// Path conversion
-mod paths;
 /// Plugin macro
 mod plugin_macro;
 
@@ -51,6 +51,8 @@ pub mod avionics;
 pub mod command;
 /// Datarefs
 pub mod data;
+/// Drawing
+pub mod draw;
 /// Error detection
 pub mod error;
 /// SDK feature management
@@ -65,6 +67,8 @@ pub mod geometry;
 pub mod menu;
 /// Plugin messages
 pub mod message;
+/// Path conversion
+pub mod paths;
 /// Plugin creation and management
 pub mod plugin;
 /// Weather system
@@ -78,11 +82,13 @@ type NoSendSync = PhantomData<*mut ()>;
 /// Access struct for all APIs in this crate. Intentionally neither [`Send`] nor [`Sync`]. Nothing in this crate is.
 pub struct XPAPI {
     // Name not decided on.
+    #[cfg(feature = "XPLM400")]
     pub avionics: AvionicsAPI,
     pub command: CommandAPI,
     pub data: DataAPI,
     pub features: FeatureAPI,
     pub menu: MenuAPI,
+    pub paths: PathApi,
     _phantom: NoSendSync, // Make this !Send + !Sync.
 }
 
@@ -113,6 +119,7 @@ impl XPAPI {
 #[inline]
 fn make_x() -> XPAPI {
     XPAPI {
+        #[cfg(feature = "XPLM400")]
         avionics: AvionicsAPI {
             _phantom: PhantomData,
         },
@@ -127,6 +134,9 @@ fn make_x() -> XPAPI {
         },
         menu: MenuAPI {
             _phantom: PhantomData,
+        },
+        paths: PathApi {
+            _phantom: PhantomData
         },
         _phantom: PhantomData,
     }

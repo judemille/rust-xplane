@@ -12,9 +12,11 @@ use std::{marker::PhantomData, mem, ops::Deref, ptr};
 
 use snafu::prelude::*;
 
-use xplane_sys::{
-    self, XPLMCursorStatus, XPLMKeyFlags, XPLMMouseStatus, XPLMWindowDecoration, XPLMWindowLayer,
-};
+#[cfg(feature = "XPLM301")]
+use xplane_sys::XPLMWindowDecoration;
+#[cfg(feature = "XPLM300")]
+use xplane_sys::XPLMWindowLayer;
+use xplane_sys::{self, XPLMCursorStatus, XPLMKeyFlags, XPLMMouseStatus};
 
 use crate::{make_x, NoSendSync};
 
@@ -149,7 +151,9 @@ impl Window {
             handleCursorFunc: Some(window_cursor),
             handleMouseWheelFunc: Some(window_scroll),
             refcon: window_ptr.cast(),
+            #[cfg(feature = "XPLM301")]
             decorateAsFloatingWindow: XPLMWindowDecoration::None,
+            #[cfg(feature = "XPLM300")]
             layer: XPLMWindowLayer::FloatingWindows,
             handleRightClickFunc: None,
         };
