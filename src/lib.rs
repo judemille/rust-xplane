@@ -67,6 +67,9 @@ pub mod menu;
 pub mod message;
 /// Plugin creation and management
 pub mod plugin;
+/// Weather system
+#[cfg(feature = "XPLM400")]
+pub mod weather;
 /// Relatively low-level windows
 pub mod window;
 
