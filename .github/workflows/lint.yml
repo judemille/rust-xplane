@@ -4,11 +4,19 @@ on:
   push:
     branches:
       - main
-      - releases/**
+      - develop
+      - feature/**
+      - bugfix/**
+      - hotfix/**
+      - release/**
   pull_request:
     branches:
       - main
-      - releases/**
+      - develop
+      - feature/**
+      - bugfix/**
+      - hotfix/**
+      - release/**
 
 permissions:
   checks: write
