@@ -21,8 +21,8 @@
 macro_rules! xplane_plugin {
     ($plugin_type: ty) => {
         // The plugin
-        static mut PLUGIN: ::xplane::plugin::internal::PluginData<$plugin_type> =
-            ::xplane::plugin::internal::PluginData {
+        static mut PLUGIN: $crate::plugin::internal::PluginData<$plugin_type> =
+            $crate::plugin::internal::PluginData {
                 plugin: 0 as *mut _,
                 panicked: false,
             };
@@ -34,25 +34,25 @@ macro_rules! xplane_plugin {
             signature: *mut ::std::os::raw::c_char,
             description: *mut ::std::os::raw::c_char,
         ) -> ::std::os::raw::c_int {
-            ::xplane::plugin::internal::xplugin_start(&mut PLUGIN, name, signature, description)
+            $crate::plugin::internal::xplugin_start(&mut PLUGIN, name, signature, description)
         }
 
         #[allow(non_snake_case)]
         #[no_mangle]
         pub unsafe extern "C" fn XPluginStop() {
-            ::xplane::plugin::internal::xplugin_stop(&mut PLUGIN)
+            $crate::plugin::internal::xplugin_stop(&mut PLUGIN)
         }
 
         #[allow(non_snake_case)]
         #[no_mangle]
         pub unsafe extern "C" fn XPluginEnable() -> ::std::os::raw::c_int {
-            ::xplane::plugin::internal::xplugin_enable(&mut PLUGIN)
+            $crate::plugin::internal::xplugin_enable(&mut PLUGIN)
         }
 
         #[allow(non_snake_case)]
         #[no_mangle]
         pub unsafe extern "C" fn XPluginDisable() {
-            ::xplane::plugin::internal::xplugin_disable(&mut PLUGIN)
+            $crate::plugin::internal::xplugin_disable(&mut PLUGIN)
         }
 
         #[allow(non_snake_case)]
@@ -63,7 +63,7 @@ macro_rules! xplane_plugin {
             message: ::std::os::raw::c_int,
             param: *mut ::std::os::raw::c_void,
         ) {
-            ::xplane::plugin::internal::xplugin_receive_message(&mut PLUGIN, from, message, param)
+            $crate::plugin::internal::xplugin_receive_message(&mut PLUGIN, from, message, param)
         }
     };
 }

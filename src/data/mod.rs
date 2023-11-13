@@ -14,7 +14,12 @@ use std::{
 
 use xplane_sys::XPLMDataTypeID;
 
-use crate::ffi::StringBuffer;
+use crate::{ffi::StringBuffer, NoSendSync};
+
+use self::{
+    borrowed::{DataRef, FindError},
+    owned::{CreateError, OwnedData},
+};
 
 /// Datarefs created by X-Plane or other plugins
 pub mod borrowed;
@@ -218,3 +223,42 @@ impl_type!([u32]: array as XPLMDataTypeID::IntArray);
 impl_type!([f32]: array as XPLMDataTypeID::FloatArray);
 impl_type!([u8]: array as XPLMDataTypeID::Data);
 impl_type!([i8]: array as XPLMDataTypeID::Data);
+
+pub struct DataAPI {
+    pub(crate) _phantom: NoSendSync,
+}
+
+impl DataAPI {
+    /// Finds a readable dataref by its name
+    /// # Errors
+    /// Returns an error if the dataref does not exist or has the wrong type
+    pub fn find<T: DataType + ?Sized, S: AsRef<str>>(
+        &mut self,
+        name: S,
+    ) -> Result<DataRef<T, ReadOnly>, FindError> {
+        DataRef::find(name)
+    }
+
+    /// Creates a new dataref with the provided name containing the default value of T
+    /// # Errors
+    /// Errors if there is a NUL character in the dataref name, or if a dataref with that name already exists.
+    pub fn new_owned<T: DataType + Default + ?Sized, A: Access, S: AsRef<str>>(
+        &mut self,
+        name: S,
+    ) -> Result<OwnedData<T, A>, CreateError> {
+        OwnedData::new_with_value(name, &T::default())
+    }
+
+    /// Creates a new dataref with the provided name and value
+    /// # Errors
+    /// Errors if there is a NUL character in the dataref name, or if a dataref with that name already exists.
+    /// # Panics
+    /// Panics if the dataref ID returned from X-Plane is null. This should not occur.
+    pub fn new_owned_with_value<T: DataType + ?Sized, A: Access, S: AsRef<str>>(
+        &mut self,
+        name: S,
+        value: &T,
+    ) -> Result<OwnedData<T, A>, CreateError> {
+        OwnedData::new_with_value(name, value)
+    }
+}

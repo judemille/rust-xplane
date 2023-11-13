@@ -8,15 +8,34 @@
 // See the Licence for the specific language governing permissions and limitations under the Licence.
 
 use core::ffi::{c_char, c_int, c_void};
-use std::{mem, ops::Deref, ptr};
+use std::{marker::PhantomData, mem, ops::Deref, ptr};
+
+use snafu::prelude::*;
 
 use xplane_sys::{
     self, XPLMCursorStatus, XPLMKeyFlags, XPLMMouseStatus, XPLMWindowDecoration, XPLMWindowLayer,
 };
 
-use crate::make_x;
+use crate::{make_x, NoSendSync};
 
 use super::geometry::{Point, Rect};
+
+pub struct WindowApi {
+    _phantom: NoSendSync,
+}
+
+impl WindowApi {
+    /// Creates a new window with the provided geometry and returns a reference to it
+    ///
+    /// The window is originally not visible.
+    #[must_use]
+    pub fn create_window<R: Into<Rect<i32>>, D: WindowDelegate>(
+        geometry: R,
+        delegate: D,
+    ) -> WindowRef {
+        Window::create(geometry, delegate)
+    }
+}
 
 /// Cursor states that windows can apply
 #[derive(Debug, Clone, Default)]
@@ -31,10 +50,9 @@ pub enum Cursor {
 }
 
 #[allow(clippy::cast_possible_wrap)]
-impl Cursor {
-    /// Converts this cursor into an `XPLMCursorStatus`
-    fn as_xplm(&self) -> xplane_sys::XPLMCursorStatus {
-        match *self {
+impl From<Cursor> for XPLMCursorStatus {
+    fn from(value: Cursor) -> Self {
+        match value {
             Cursor::Default => XPLMCursorStatus::Default,
             Cursor::Arrow => XPLMCursorStatus::Arrow,
             Cursor::Hide => XPLMCursorStatus::Hidden,
@@ -77,13 +95,21 @@ pub trait WindowDelegate: 'static {
 /// A reference to a window
 pub struct WindowRef {
     /// The window
-    window: Box<Window>,
+    window: *mut Window,
 }
 
 impl Deref for WindowRef {
     type Target = Window;
     fn deref(&self) -> &Self::Target {
-        &self.window
+        unsafe { self.window.as_ref().unwrap() } // This will not be a null pointer.
+    }
+}
+
+impl Drop for WindowRef {
+    fn drop(&mut self) {
+        unsafe {
+            let _ = Box::from_raw(self.window);
+        }
     }
 }
 
@@ -95,21 +121,19 @@ pub struct Window {
     /// The window ID
     id: xplane_sys::XPLMWindowID,
     /// The delegate
-    delegate: Box<dyn WindowDelegate>,
+    delegate: *mut dyn WindowDelegate,
+    _phantom: NoSendSync,
 }
 
 impl Window {
-    /// Creates a new window with the provided geometry and returns a reference to it
-    ///
-    /// The window is originally not visible.
-    pub fn create<R: Into<Rect<i32>>, D: WindowDelegate>(geometry: R, delegate: D) -> WindowRef {
+    fn create<R: Into<Rect<i32>>, D: WindowDelegate>(geometry: R, delegate: D) -> WindowRef {
         let geometry = geometry.into();
 
-        let mut window_box = Box::new(Window {
+        let window_ptr = Box::into_raw(Box::new(Window {
             id: ptr::null_mut(),
-            delegate: Box::new(delegate),
-        });
-        let window_ptr: *mut Window = &mut *window_box;
+            delegate: Box::into_raw(Box::new(delegate)), // This pointer should never end up null.
+            _phantom: PhantomData,
+        }));
 
         #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
         let mut window_info = xplane_sys::XPLMCreateWindow_t {
@@ -131,9 +155,11 @@ impl Window {
         };
 
         let window_id = unsafe { xplane_sys::XPLMCreateWindowEx(&mut window_info) };
-        window_box.id = window_id;
+        unsafe {
+            (*window_ptr).id = window_id;
+        }
 
-        WindowRef { window: window_box }
+        WindowRef { window: window_ptr } // This pointer should never end up null.
     }
 
     /// Returns the geometry of this window
@@ -185,14 +211,15 @@ impl Drop for Window {
     fn drop(&mut self) {
         unsafe {
             xplane_sys::XPLMDestroyWindow(self.id);
+            let _ = Box::from_raw(self.delegate);
         }
     }
 }
 
 /// Callback in which windows are drawn
 unsafe extern "C" fn window_draw(_window: xplane_sys::XPLMWindowID, refcon: *mut c_void) {
-    let window = refcon.cast::<Window>();
-    (*window).delegate.draw(&*window);
+    let window = refcon.cast::<Window>().as_mut().unwrap(); // This pointer should not be null.
+    window.delegate.as_mut().unwrap().draw(window); // This will not be a null pointer.
 }
 
 /// Keyboard callback
@@ -204,10 +231,16 @@ unsafe extern "C" fn window_key(
     refcon: *mut c_void,
     losing_focus: c_int,
 ) {
-    let window = refcon.cast::<Window>();
     if losing_focus == 0 {
         match KeyEvent::from_xplm(key, flags, virtual_key) {
-            Ok(event) => (*window).delegate.keyboard_event(&*window, event),
+            Ok(event) => {
+                let window = refcon.cast::<Window>().as_mut().unwrap(); // This pointer should not be null.
+                window
+                    .delegate
+                    .as_mut()
+                    .unwrap()
+                    .keyboard_event(window, event); // This will not be a null pointer.
+            }
             Err(e) => {
                 let mut x = make_x();
                 super::debugln!(x, "Invalid key event received: {:?}", e).unwrap();
@@ -225,11 +258,11 @@ unsafe extern "C" fn window_mouse(
     status: xplane_sys::XPLMMouseStatus,
     refcon: *mut c_void,
 ) -> c_int {
-    let window = refcon.cast::<Window>();
     if let Ok(action) = MouseAction::try_from(status) {
         let position = Point::from((x, y));
         let event = MouseEvent::new(position, action);
-        let propagate = (*window).delegate.mouse_event(&*window, event);
+        let window = refcon.cast::<Window>().as_mut().unwrap(); // This pointer should not be null.
+        let propagate = window.delegate.as_mut().unwrap().mouse_event(window, event); // This will not be a null pointer.
         i32::from(!propagate)
     } else {
         // Propagate
@@ -244,9 +277,13 @@ unsafe extern "C" fn window_cursor(
     y: c_int,
     refcon: *mut c_void,
 ) -> xplane_sys::XPLMCursorStatus {
-    let window = refcon.cast::<Window>();
-    let cursor = (*window).delegate.cursor(&*window, Point::from((x, y)));
-    cursor.as_xplm()
+    let window = refcon.cast::<Window>().as_mut().unwrap(); // This pointer should not be null.
+    let cursor = window
+        .delegate
+        .as_mut()
+        .unwrap()
+        .cursor(window, Point::from((x, y))); // This will not be a null pointer.
+    cursor.into()
 }
 
 /// Scroll callback
@@ -258,8 +295,6 @@ unsafe extern "C" fn window_scroll(
     clicks: c_int,
     refcon: *mut c_void,
 ) -> c_int {
-    let window = refcon.cast::<Window>();
-
     let position = Point::from((x, y));
     let (dx, dy) = if wheel == 1 {
         // Horizontal
@@ -270,7 +305,12 @@ unsafe extern "C" fn window_scroll(
     };
     let event = ScrollEvent::new(position, dx, dy);
 
-    let propagate = (*window).delegate.scroll_event(&*window, event);
+    let window = refcon.cast::<Window>().as_mut().unwrap(); // This pointer should not be null.
+    let propagate = window
+        .delegate
+        .as_mut()
+        .unwrap()
+        .scroll_event(window, event); // This will not be a null pointer.
     i32::from(!propagate)
 }
 
@@ -576,13 +616,13 @@ impl KeyEvent {
         } else if flags.field_true(XPLMKeyFlags::Up) {
             KeyAction::Release
         } else {
-            return Err(KeyEventError::InvalidFlags(flags));
+            return Err(KeyEventError::InvalidFlags { flags });
         };
         let control_pressed = flags.field_true(XPLMKeyFlags::Control);
         let shift_pressed = flags.field_true(XPLMKeyFlags::Shift);
         let alt_pressed = flags.field_true(XPLMKeyFlags::OptionAlt);
         let Some(key) = Key::from_xplm(virtual_key) else {
-            return Err(KeyEventError::InvalidKey(virtual_key));
+            return Err(KeyEventError::InvalidKey { key: virtual_key });
         };
 
         Ok(KeyEvent {
@@ -630,13 +670,13 @@ impl KeyEvent {
 }
 
 /// Key event creation error
-#[derive(thiserror::Error, Debug)]
+#[derive(Snafu, Debug)]
 enum KeyEventError {
-    #[error("Unexpected key flags {0:b}")]
-    InvalidFlags(xplane_sys::XPLMKeyFlags),
+    #[snafu(display("Unexpected key flags {flags:b}"))]
+    InvalidFlags { flags: xplane_sys::XPLMKeyFlags },
 
-    #[error("Invalid or unsupported key with code: 0x{0:x}")]
-    InvalidKey(c_char),
+    #[snafu(display("Invalid or unsupported key with code: 0x{key:x}"))]
+    InvalidKey { key: c_char },
 }
 
 /// Actions that the mouse/cursor can perform

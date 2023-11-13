@@ -10,15 +10,20 @@
 use core::ffi::c_void;
 use std::{
     ffi::{CString, NulError},
+    fmt::Debug,
     marker::PhantomData,
     ptr,
 };
+
+use snafu::prelude::*;
 
 use xplane_sys::{
     XPLMCanWriteDataRef, XPLMDataRef, XPLMFindDataRef, XPLMGetDataRefTypes, XPLMGetDatab,
     XPLMGetDatad, XPLMGetDataf, XPLMGetDatai, XPLMGetDatavf, XPLMGetDatavi, XPLMSetDatab,
     XPLMSetDatad, XPLMSetDataf, XPLMSetDatai, XPLMSetDatavf, XPLMSetDatavi,
 };
+
+use crate::NoSendSync;
 
 use super::{ArrayRead, ArrayReadWrite, DataRead, DataReadWrite, DataType, ReadOnly, ReadWrite};
 
@@ -34,13 +39,12 @@ pub struct DataRef<T: ?Sized, A = ReadOnly> {
     _type_phantom: PhantomData<T>,
     /// Data access phantom data
     _access_phantom: PhantomData<A>,
+    _no_send_sync: NoSendSync,
 }
 
 impl<T: DataType + ?Sized> DataRef<T, ReadOnly> {
-    /// Finds a readable dataref by its name
-    /// # Errors
-    /// Returns an error if the dataref does not exist or has the wrong type
-    pub fn find(name: &str) -> Result<Self, FindError> {
+    pub(super) fn find<S: AsRef<str>>(name: S) -> Result<Self, FindError> {
+        let name = name.as_ref();
         let name_c = CString::new(name)?;
         let expected_type = T::sim_type();
 
@@ -57,13 +61,14 @@ impl<T: DataType + ?Sized> DataRef<T, ReadOnly> {
                 id: dataref,
                 _type_phantom: PhantomData,
                 _access_phantom: PhantomData,
+                _no_send_sync: PhantomData,
             })
         }
     }
 
     /// Makes this dataref writable
     /// # Errors
-    /// Returns an error if the dataref cannot be written.
+    /// Returns Err(self) if the dataref cannot be written.
     pub fn writeable(self) -> Result<DataRef<T, ReadWrite>, Self> {
         let writable = unsafe { XPLMCanWriteDataRef(self.id) == 1 };
         if writable {
@@ -71,10 +76,20 @@ impl<T: DataType + ?Sized> DataRef<T, ReadOnly> {
                 id: self.id,
                 _type_phantom: PhantomData,
                 _access_phantom: PhantomData,
+                _no_send_sync: PhantomData,
             })
         } else {
             Err(self)
         }
+    }
+}
+
+#[allow(clippy::missing_fields_in_debug)]
+impl<T: ?Sized, A> Debug for DataRef<T, A> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DataRef")
+            .field("id", &"[dataref handle]")
+            .finish()
     }
 }
 
@@ -258,22 +273,23 @@ fn array_size(size: usize) -> i32 {
 }
 
 /// Errors that can occur when finding `DataRef`s
-#[derive(thiserror::Error, Debug)]
+#[derive(Snafu, Debug)]
 pub enum FindError {
     /// The provided DataRef name contained a null byte
-    #[error("Null byte in DataRef name")]
-    Null(#[from] NulError),
+    #[snafu(display("Null byte in DataRef name"))]
+    #[snafu(context(false))]
+    Null { source: NulError },
 
     /// The DataRef could not be found
-    #[error("DataRef not found")]
+    #[snafu(display("DataRef not found"))]
     NotFound,
 
     /// The DataRef is not writable
-    #[error("DataRef not writable")]
+    #[snafu(display("DataRef not writable"))]
     NotWritable,
 
     /// The DataRef does not have the correct type
-    #[error("Incorrect DataRef type")]
+    #[snafu(display("Incorrect DataRef type"))]
     WrongType,
 }
 

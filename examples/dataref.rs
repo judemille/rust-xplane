@@ -7,6 +7,8 @@
 // <https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12>.
 // See the Licence for the specific language governing permissions and limitations under the Licence.
 
+use std::ffi::NulError;
+
 use xplane::{
     data::{
         borrowed::{DataRef, FindError},
@@ -29,53 +31,74 @@ struct DataRefPlugin {
 }
 
 impl DataRefPlugin {
-    fn test_datarefs(&mut self) {
-        debugln!("Has joystick: {}", self.has_joystick.get());
-        debugln!("Earth mu: {}", self.earth_mu.get());
-        debugln!("Date: {}", self.date.get());
+    fn test_datarefs(&mut self, xpapi: &mut xplane::XPAPI) -> Result<(), NulError> {
+        debugln!(xpapi, "Has joystick: {}", self.has_joystick.get())?;
+        debugln!(xpapi, "Earth mu: {}", self.earth_mu.get())?;
+        debugln!(xpapi, "Date: {}", self.date.get())?;
         debugln!(
+            xpapi,
             "Simulator build: {}",
             self.sim_build_string
                 .get_as_string()
                 .unwrap_or(String::from("Unknown"))
-        );
-        debugln!("Latitude: {}", self.latitude.get());
+        )?;
+        debugln!(xpapi, "Latitude: {}", self.latitude.get())?;
         debugln!(
+            xpapi,
             "Joystick axis values: {:?}",
             self.joystick_axis_values.as_vec()
-        );
-        debugln!("Battery on: {:?}", self.battery_on.as_vec());
+        )?;
+        debugln!(xpapi, "Battery on: {:?}", self.battery_on.as_vec())?;
+        Ok(())
     }
 }
 
 impl Plugin for DataRefPlugin {
     type Error = FindError;
-    fn start() -> Result<Self, Self::Error> {
+    fn start(xpapi: &mut xplane::XPAPI) -> Result<Self, Self::Error> {
         let plugin = DataRefPlugin {
-            has_joystick: DataRef::find("sim/joystick/has_joystick")?,
-            earth_mu: DataRef::find("sim/physics/earth_mu")?,
-            date: DataRef::find("sim/time/local_date_days")?.writeable()?,
-            sim_build_string: DataRef::find("sim/version/sim_build_string")?,
-            latitude: DataRef::find("sim/flightmodel/position/latitude")?,
-            joystick_axis_values: DataRef::find("sim/joystick/joystick_axis_values")?,
-            battery_on: DataRef::find("sim/cockpit2/electrical/battery_on")?.writeable()?,
+            has_joystick: xpapi.data.find("sim/joystick/has_joystick")?,
+            earth_mu: xpapi.data.find("sim/physics/earth_mu")?,
+            date: xpapi
+                .data
+                .find("sim/time/local_date_days")?
+                .writeable()
+                .expect("Could not make dataref writeable!"),
+            sim_build_string: xpapi.data.find("sim/version/sim_build_string")?,
+            latitude: xpapi.data.find("sim/flightmodel/position/latitude")?,
+            joystick_axis_values: xpapi.data.find("sim/joystick/joystick_axis_values")?,
+            battery_on: xpapi
+                .data
+                .find("sim/cockpit2/electrical/battery_on")?
+                .writeable()
+                .expect("Could not make dataref writeable!"),
         };
         Ok(plugin)
     }
 
-    fn enable(&mut self) -> Result<(), Self::Error> {
-        self.test_datarefs();
+    fn enable(&mut self, xpapi: &mut xplane::XPAPI) -> Result<(), Self::Error> {
+        self.test_datarefs(xpapi).unwrap(); // There should be no NUL bytes in there.
         Ok(())
     }
 
     fn info(&self) -> PluginInfo {
         PluginInfo {
             name: String::from("Dataref Test"),
-            signature: String::from("org.samcrow.xplm.examples.dataref"),
+            signature: String::from("com.jdemille.xplane.examples.dataref"),
             description: String::from("Tests the DataRef features of xplm"),
         }
     }
-    fn receive_message(&mut self, _from: i32, _message: MessageId, _param: *mut core::ffi::c_void) {
+    fn receive_message(
+        &mut self,
+        _xpapi: &mut xplane::XPAPI,
+        _from: i32,
+        _message: MessageId,
+        _param: *mut core::ffi::c_void,
+    ) {
+    }
+
+    fn disable(&mut self, _xpapi: &mut xplane::XPAPI) {
+        todo!()
     }
 }
 

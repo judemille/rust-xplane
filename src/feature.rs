@@ -8,7 +8,6 @@
 // See the Licence for the specific language governing permissions and limitations under the Licence.
 
 use std::{
-    cell::UnsafeCell,
     ffi::{CStr, CString, NulError},
     fmt,
     marker::PhantomData,
@@ -26,7 +25,7 @@ pub struct Feature {
     /// The name of this feature
     /// Invariant: this can be successfully converted into a CString
     name: String,
-    _phantom: PhantomData<&'static UnsafeCell<()>>, // Make this !Send + !Sync
+    _phantom: NoSendSync,
 }
 
 /// Access struct for the Feature API.
@@ -116,5 +115,68 @@ unsafe extern "C" fn feature_callback(feature: *const c_char, refcon: *mut c_voi
             _phantom: PhantomData,
         };
         (*features).push(new_feature);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::make_x;
+
+    use super::*;
+    #[test]
+    #[allow(clippy::too_many_lines)]
+    fn test_features() {
+        // Part miri food, part unit test.
+        let enumerate_features_ctx = xplane_sys::XPLMEnumerateFeatures_context();
+        enumerate_features_ctx
+            .expect()
+            .once()
+            .return_once_st(|cb, refcon| {
+                let cb = cb.unwrap(); // This should be Some.
+                let paths_feature = CString::new("XPLM_USE_NATIVE_PATHS").unwrap(); // We know that this is a valid C-string.
+                let other_feature = CString::new("XPLM_SOME_OTHER_FEATURE").unwrap(); // We know that this is a valid C-string.
+                unsafe {
+                    cb(paths_feature.as_ptr(), refcon);
+                    cb(other_feature.as_ptr(), refcon);
+                }
+            });
+        let has_feature_ctx = xplane_sys::XPLMHasFeature_context();
+        has_feature_ctx.expect().once().return_once_st(|feat| {
+            let feat = unsafe { CStr::from_ptr(feat) };
+            let feat = feat.to_str().unwrap(); // This should be valid UTF-8.
+            assert_eq!(feat, "XPLM_ANOTHER_FEATURE");
+            1
+        });
+        let feature_enabled_ctx = xplane_sys::XPLMIsFeatureEnabled_context();
+        feature_enabled_ctx.expect().once().return_once_st(|feat| {
+            let feat = unsafe { CStr::from_ptr(feat) };
+            let feat = feat.to_str().unwrap(); // This should be valid UTF-8.
+            assert_eq!(feat, "XPLM_ANOTHER_FEATURE");
+            0
+        });
+        let enable_feature_ctx = xplane_sys::XPLMEnableFeature_context();
+        enable_feature_ctx
+            .expect()
+            .once()
+            .return_once_st(|feat, enable| {
+                let feat = unsafe { CStr::from_ptr(feat) };
+                let feat = feat.to_str().unwrap(); // This should be valid UTF-8.
+                assert_eq!(feat, "XPLM_ANOTHER_FEATURE");
+                assert_eq!(enable, 1);
+            });
+        let mut x = make_x();
+        let feats: Vec<String> = x
+            .features
+            .all()
+            .iter()
+            .map(|feat| feat.name.clone())
+            .collect();
+        assert_eq!(
+            feats,
+            vec!["XPLM_USE_NATIVE_PATHS", "XPLM_SOME_OTHER_FEATURE"]
+        );
+        let feat = x.features.find("XPLM_ANOTHER_FEATURE").unwrap().unwrap();
+        assert!(!feat.enabled());
+        feat.set_enabled(true);
     }
 }

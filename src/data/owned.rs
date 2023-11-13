@@ -16,12 +16,16 @@ use std::{
     ptr,
 };
 
+use snafu::prelude::*;
+
 use xplane_sys::{
     XPLMDataRef, XPLMDataTypeID, XPLMFindDataRef, XPLMGetDatab_f, XPLMGetDatad_f, XPLMGetDataf_f,
     XPLMGetDatai_f, XPLMGetDatavf_f, XPLMGetDatavi_f, XPLMRegisterDataAccessor, XPLMSetDatab_f,
     XPLMSetDatad_f, XPLMSetDataf_f, XPLMSetDatai_f, XPLMSetDatavf_f, XPLMSetDatavi_f,
     XPLMUnregisterDataAccessor,
 };
+
+use crate::NoSendSync;
 
 use super::{Access, ArrayRead, ArrayReadWrite, DataRead, DataReadWrite, DataType, ReadOnly};
 
@@ -36,28 +40,15 @@ pub struct OwnedData<T: DataType + ?Sized, A = ReadOnly> {
     ///
     /// This is boxed so that it will have a constant memory location that is
     /// provided as a refcon to the callbacks.
-    value: Box<T::Storage>,
+    value: *mut T::Storage,
     /// Data access phantom data
-    access_phantom: PhantomData<A>,
+    _access_phantom: PhantomData<A>,
+    _no_send_sync: NoSendSync,
 }
 
 impl<T: DataType + ?Sized, A: Access> OwnedData<T, A> {
-    /// Creates a new dataref with the provided name containing the default value of T
-    /// # Errors
-    /// Errors if there is a NUL character in the dataref name, or if a dataref with that name already exists.
-    pub fn new(name: &str) -> Result<Self, CreateError>
-    where
-        T: Default,
-    {
-        Self::new_with_value(name, &T::default())
-    }
-
-    /// Creates a new dataref with the provided name and value
-    /// # Errors
-    /// Errors if there is a NUL character in the dataref name, or if a dataref with that name already exists.
-    /// # Panics
-    /// Panics if the dataref ID returned from X-Plane is null. This should not occur.
-    pub fn new_with_value(name: &str, value: &T) -> Result<Self, CreateError> {
+    pub(super) fn new_with_value<S: AsRef<str>>(name: S, value: &T) -> Result<Self, CreateError> {
+        let name = name.as_ref();
         let name_c = CString::new(name)?;
 
         let existing = unsafe { XPLMFindDataRef(name_c.as_ptr()) };
@@ -65,9 +56,7 @@ impl<T: DataType + ?Sized, A: Access> OwnedData<T, A> {
             return Err(CreateError::Exists);
         }
 
-        let value = value.to_storage();
-        let mut value_box = Box::new(value);
-        let value_ptr: *mut T::Storage = value_box.as_mut();
+        let value = Box::into_raw(Box::new(value.to_storage()));
 
         let id = unsafe {
             XPLMRegisterDataAccessor(
@@ -86,16 +75,17 @@ impl<T: DataType + ?Sized, A: Access> OwnedData<T, A> {
                 Self::float_array_write(),
                 Self::byte_array_read(),
                 Self::byte_array_write(),
-                value_ptr.cast::<std::ffi::c_void>(),
-                value_ptr.cast::<std::ffi::c_void>(),
+                value.cast::<std::ffi::c_void>(),
+                value.cast::<std::ffi::c_void>(),
             )
         };
 
         assert!(!id.is_null(), "Dataref ID of created dataref is null!");
         Ok(OwnedData {
             id,
-            value: value_box,
-            access_phantom: PhantomData,
+            value,
+            _access_phantom: PhantomData,
+            _no_send_sync: PhantomData,
         })
     }
 
@@ -187,6 +177,12 @@ impl<T: DataType + ?Sized, A: Access> OwnedData<T, A> {
             None
         }
     }
+    fn value_ref(&self) -> &T::Storage {
+        unsafe { self.value.as_ref().unwrap() } // Unwrap: This is guaranteed to not be a null pointer.
+    }
+    fn value_mut(&mut self) -> &mut T::Storage {
+        unsafe { self.value.as_mut().unwrap() } // Unwrap: This will not be a null pointer.
+    }
 }
 
 impl<T: DataType + ?Sized, A> Drop for OwnedData<T, A> {
@@ -198,36 +194,38 @@ impl<T: DataType + ?Sized, A> Drop for OwnedData<T, A> {
 // DataRead and DataReadWrite
 macro_rules! impl_read_write {
     ([$native_type:ty]) => {
-        impl<A> ArrayRead<[$native_type]> for OwnedData<[$native_type], A> {
+        impl<A: Access> ArrayRead<[$native_type]> for OwnedData<[$native_type], A> {
             fn get(&self, dest: &mut [$native_type]) -> usize {
-                let copy_length = cmp::min(dest.len(), self.value.len());
+                let copy_length = cmp::min(dest.len(), self.value_ref().len());
                 let dest_sub = &mut dest[..copy_length];
-                let value_sub = &self.value[..copy_length];
+                let value_sub = &self.value_ref()[..copy_length];
                 dest_sub.copy_from_slice(value_sub);
                 copy_length
             }
             fn len(&self) -> usize {
-                self.value.len()
+                self.value_ref().len()
             }
         }
-        impl<A> ArrayReadWrite<[$native_type]> for OwnedData<[$native_type], A> {
+        impl<A: Access> ArrayReadWrite<[$native_type]> for OwnedData<[$native_type], A> {
             fn set(&mut self, values: &[$native_type]) {
-                let copy_length = cmp::min(values.len(), self.value.len());
+                let copy_length = cmp::min(values.len(), self.value_ref().len());
                 let src_sub = &values[..copy_length];
-                let values_sub = &mut self.value[..copy_length];
+                let values_sub = &mut self.value_mut()[..copy_length];
                 values_sub.copy_from_slice(src_sub);
             }
         }
     };
     ($native_type:ty) => {
-        impl<A> DataRead<$native_type> for OwnedData<$native_type, A> {
+        impl<A: Access> DataRead<$native_type> for OwnedData<$native_type, A> {
             fn get(&self) -> $native_type {
-                *self.value
+                unsafe { *self.value }
             }
         }
-        impl<A> DataReadWrite<$native_type> for OwnedData<$native_type, A> {
+        impl<A: Access> DataReadWrite<$native_type> for OwnedData<$native_type, A> {
             fn set(&mut self, value: $native_type) {
-                *self.value = value;
+                unsafe {
+                    *self.value = value;
+                }
             }
         }
     };
@@ -249,14 +247,15 @@ impl_read_write!([u8]);
 impl_read_write!([i8]);
 
 /// Errors that can occur when creating a `DataRef`
-#[derive(thiserror::Error, Debug)]
+#[derive(Snafu, Debug)]
 pub enum CreateError {
     /// The provided DataRef name contained a null byte
-    #[error("Null byte in dataref name")]
-    Null(#[from] NulError),
+    #[snafu(display("Null byte in dataref name"))]
+    #[snafu(context(false))]
+    Null { source: NulError },
 
     /// The DataRef exists already
-    #[error("DataRef already exists")]
+    #[snafu(display("DataRef already exists"))]
     Exists,
 }
 

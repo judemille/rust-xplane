@@ -12,10 +12,21 @@
 // Making some lints from clippy::pedantic allow instead of warn.
 #![allow(clippy::module_name_repetitions)]
 
-//! Bindings to the X-Plane plugin SDK
+//! Bindings to the X-Plane plugin SDK.
+//! These should be mostly safe, although care must be taken in some aspects.
+//! Any functions or modules that could behave in unexpected ways will document that.
+//! This crate handles panics in the `XPluginStart`, `XPluginEnable`, `XPluginDisable`,
+//! and `XPluginStop` callbacks. In those cases, your plugin should be disabled by X-Plane.
+//! This may cause a memory leak, however. Unwinds are not caught in any other callback;
+//! the philosophy being that if something has gone critically wrong while the plugin is running,
+//! it probably affects the integrity of the simulator, and should prevent it running.
 
+use avionics::AvionicsAPI;
+use command::CommandAPI;
 use core::ffi::c_void;
-use flight_loop::{FlightLoop, FlightLoopCallback};
+use data::DataAPI;
+use flight_loop::{FlightLoop, FlightLoopCallback, FlightLoopPhase};
+use menu::MenuAPI;
 use std::{
     ffi::{CString, NulError},
     marker::PhantomData,
@@ -50,9 +61,6 @@ use feature::FeatureAPI;
 pub mod flight_loop;
 /// 2D user interface geometry
 pub mod geometry;
-/// Access handles for state data.
-mod state;
-pub use state::StateData;
 /// User interface menus
 pub mod menu;
 /// Plugin messages
@@ -67,7 +75,11 @@ type NoSendSync = PhantomData<*mut ()>;
 /// Access struct for all APIs in this crate. Intentionally neither [`Send`] nor [`Sync`]. Nothing in this crate is.
 pub struct XPAPI {
     // Name not decided on.
+    pub avionics: AvionicsAPI,
+    pub command: CommandAPI,
+    pub data: DataAPI,
     pub features: FeatureAPI,
+    pub menu: MenuAPI,
     _phantom: NoSendSync, // Make this !Send + !Sync.
 }
 
@@ -83,28 +95,34 @@ impl XPAPI {
         Ok(())
     }
 
-    /// Get a handle to mutable state data.
-    pub fn with_handle<T, U, V>(&mut self, sd: &mut StateData<T>, cb: U) -> V
-    where
-        U: FnOnce(&mut T) -> V,
-    {
-        sd.with_handle(cb)
-    }
-
     /// Creates a new flight loop. The provided callback will not be
     /// called until the loop is scheduled.
-    pub fn new_flight_loop<T, C>(&mut self, callback: C, base_state: T) -> FlightLoop<T, C>
-    where
-        C: FlightLoopCallback<T>,
-    {
-        FlightLoop::new(callback, base_state)
+    pub fn new_flight_loop<T: 'static>(
+        &mut self,
+        phase: FlightLoopPhase,
+        callback: impl FlightLoopCallback<T>,
+        base_state: T,
+    ) -> FlightLoop<T> {
+        FlightLoop::new(phase, callback, base_state)
     }
 }
 
 #[inline]
 fn make_x() -> XPAPI {
     XPAPI {
+        avionics: AvionicsAPI {
+            _phantom: PhantomData,
+        },
+        command: CommandAPI {
+            _phantom: PhantomData,
+        },
+        data: DataAPI {
+            _phantom: PhantomData,
+        },
         features: FeatureAPI {
+            _phantom: PhantomData,
+        },
+        menu: MenuAPI {
             _phantom: PhantomData,
         },
         _phantom: PhantomData,
