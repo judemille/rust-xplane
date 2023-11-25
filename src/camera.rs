@@ -140,11 +140,11 @@ impl CameraApi {
     /// If it is being controlled, [`Some`] with the duration of the control
     /// will be returned.
     pub fn is_controlled(&mut self) -> Option<XPLMCameraControlDuration> {
-        let mut duration = XPLMCameraControlDuration(-1);
+        let mut duration = XPLMCameraControlDuration(1000);
         if unsafe { XPLMIsCameraBeingControlled(&mut duration) } == 0 {
             None
         } else {
-            Some(duration)
+            (duration.0 != 1000).then_some(duration)
         }
     }
     /// Get the position of the camera.
