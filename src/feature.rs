@@ -1,11 +1,8 @@
-// Copyright (c) 2023 Julia DeMille
+// Copyright (c) 2023 Julia DeMille.
 //
-// Licensed under the EUPL, Version 1.2
-//
-// You may not use this work except in compliance with the Licence.
-// You should have received a copy of the Licence along with this work. If not, see:
-// <https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12>.
-// See the Licence for the specific language governing permissions and limitations under the Licence.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use std::{
     ffi::{CStr, CString, NulError},
@@ -29,11 +26,27 @@ pub struct Feature {
 }
 
 /// Access struct for the Feature API.
-pub struct FeatureAPI {
+pub struct FeatureApi {
     pub(crate) _phantom: NoSendSync, // Make this !Send + !Sync
 }
 
 impl Feature {
+    /// Paradoxically, when this is enabled, X-Plane will use Unix-style paths.
+    /// On Windows, the drive letter will be retained, but backslashes will be converted to slashes.
+    ///
+    /// # Note
+    /// This feature should be enabled automatically by this library.
+    pub const USE_NATIVE_PATHS: &'static str = "XPLM_USE_NATIVE_PATHS";
+    /// When this is enabled, the X-Plane widgets library will use new, modern, X-Plane backed `XPLMDisplay`
+    /// windows to anchor all widget trees. Without it, widgets will always use legacy windows.
+    ///
+    /// You probably want this enabled. Make sure your widget code can handle the UI coordinate system
+    /// not being the same as the OpenGL window coordinate system.
+    pub const USE_NATIVE_WIDGET_WINDOWS: &'static str = "XPLM_USE_NATIVE_WIDGET_WINDOWS";
+    /// When enabled, X-Plane will send a message any time new datarefs are added.
+    ///
+    /// XPLM will combine consecutive dataref registrations to minimize the number of messages sent.
+    pub const WANTS_DATAREF_NOTIFICATIONS: &'static str = "XPLM_WANTS_DATAREF_NOTIFICATIONS";
     /// Returns the name of this feature
     #[must_use]
     pub fn name(&self) -> &str {
@@ -67,7 +80,7 @@ impl fmt::Display for Feature {
     }
 }
 
-impl FeatureAPI {
+impl FeatureApi {
     /// Looks for a feature with the provided name and returns it if it exists
     /// # Errors
     /// This function will return an error if `name` contains a NUL byte.
@@ -108,13 +121,15 @@ impl FeatureAPI {
 unsafe extern "C" fn feature_callback(feature: *const c_char, refcon: *mut c_void) {
     let features = refcon.cast::<Vec<Feature>>();
 
-    let name = CStr::from_ptr(feature);
+    let name = unsafe { CStr::from_ptr(feature) };
     if let Ok(name) = name.to_str() {
         let new_feature = Feature {
             name: name.to_owned(),
             _phantom: PhantomData,
         };
-        (*features).push(new_feature);
+        unsafe {
+            (*features).push(new_feature);
+        }
     }
 }
 

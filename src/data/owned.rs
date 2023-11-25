@@ -1,11 +1,8 @@
-// Copyright (c) 2023 Julia DeMille
+// Copyright (c) 2023 Julia DeMille.
 //
-// Licensed under the EUPL, Version 1.2
-//
-// You may not use this work except in compliance with the Licence.
-// You should have received a copy of the Licence along with this work. If not, see:
-// <https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12>.
-// See the Licence for the specific language governing permissions and limitations under the Licence.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use core::ffi::{c_int, c_void};
 use std::{
@@ -38,7 +35,7 @@ pub struct OwnedData<T: DataType + ?Sized, A = ReadOnly> {
     id: XPLMDataRef,
     /// The current value
     ///
-    /// This is boxed so that it will have a constant memory location that is
+    /// This comes from a Box, so that it will have a constant memory location that is
     /// provided as a refcon to the callbacks.
     value: *mut T::Storage,
     /// Data access phantom data
@@ -252,7 +249,10 @@ pub enum CreateError {
     /// The provided DataRef name contained a null byte
     #[snafu(display("Null byte in dataref name"))]
     #[snafu(context(false))]
-    Null { source: NulError },
+    Null {
+        /// The source error.
+        source: NulError,
+    },
 
     /// The DataRef exists already
     #[snafu(display("DataRef already exists"))]
@@ -265,13 +265,15 @@ pub enum CreateError {
 /// Default read callback for single sized item that is `Copy`.
 unsafe extern "C" fn read_single<T: DataType + Copy>(refcon: *mut c_void) -> T {
     let data_ptr = refcon.cast::<T>();
-    *data_ptr
+    unsafe { *data_ptr }
 }
 
 /// Default write callback for single sized item that is `Copy`.
 unsafe extern "C" fn write_single<T: DataType + Copy>(refcon: *mut c_void, value: T) {
     let data_ptr = refcon.cast::<T>();
-    *data_ptr = value;
+    unsafe {
+        *data_ptr = value;
+    }
 }
 
 /// Byte array read callback
@@ -281,7 +283,7 @@ unsafe extern "C" fn byte_array_read(
     offset: c_int,
     max: c_int,
 ) -> c_int {
-    array_read::<u8>(refcon, values.cast::<u8>(), offset, max)
+    unsafe { array_read::<u8>(refcon, values.cast::<u8>(), offset, max) }
 }
 
 /// Byte array write callback
@@ -291,7 +293,9 @@ unsafe extern "C" fn byte_array_write(
     offset: c_int,
     max: c_int,
 ) {
-    array_write::<u8>(refcon, values.cast::<u8>(), offset, max);
+    unsafe {
+        array_write::<u8>(refcon, values.cast::<u8>(), offset, max);
+    }
 }
 
 /// If values is null, returns the length of this dataref.
@@ -312,7 +316,7 @@ unsafe extern "C" fn array_read<T: Copy>(
     let offset = offset as usize;
     let max = max as usize;
     let dataref_content = refcon as *const Vec<T>;
-    let dataref_length = (*dataref_content).len();
+    let dataref_length = unsafe { (*dataref_content).len() };
     if values.is_null() {
         dataref_length as c_int
     } else {
@@ -320,9 +324,11 @@ unsafe extern "C" fn array_read<T: Copy>(
         if offset >= dataref_length {
             return 0;
         }
-        let dataref_offset = (*dataref_content).as_ptr().add(offset);
+        let dataref_offset = unsafe { (*dataref_content).as_ptr().add(offset) };
         let copy_length = cmp::min(max, dataref_length - offset);
-        ptr::copy_nonoverlapping(dataref_offset, values, copy_length);
+        unsafe {
+            ptr::copy_nonoverlapping(dataref_offset, values, copy_length);
+        }
         copy_length as c_int
     }
 }
@@ -339,12 +345,14 @@ unsafe extern "C" fn array_write<T: Copy>(
     let offset = offset as usize;
     let max = max as usize;
     let dataref_content = refcon.cast::<Vec<T>>();
-    let dataref_length = (*dataref_content).len();
+    let dataref_length = unsafe { (*dataref_content).len() };
 
     if offset >= dataref_length {
         return;
     }
-    let dataref_offset = (*dataref_content).as_mut_ptr().add(offset);
+    let dataref_offset = unsafe { (*dataref_content).as_mut_ptr().add(offset) };
     let copy_length = cmp::min(max, dataref_length - offset);
-    ptr::copy_nonoverlapping(values, dataref_offset, copy_length);
+    unsafe {
+        ptr::copy_nonoverlapping(values, dataref_offset, copy_length);
+    }
 }

@@ -1,27 +1,23 @@
-// Copyright (c) 2023 Julia DeMille
+// Copyright (c) 2023 Julia DeMille.
 //
-// Licensed under the EUPL, Version 1.2
-//
-// You may not use this work except in compliance with the Licence.
-// You should have received a copy of the Licence along with this work. If not, see:
-// <https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12>.
-// See the Licence for the specific language governing permissions and limitations under the Licence.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use core::ffi::{c_char, c_int, c_void};
 use std::{marker::PhantomData, mem, ops::Deref, ptr};
 
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 use snafu::prelude::*;
 
-#[cfg(feature = "XPLM301")]
-use xplane_sys::XPLMWindowDecoration;
-#[cfg(feature = "XPLM300")]
-use xplane_sys::XPLMWindowLayer;
-use xplane_sys::{self, XPLMCursorStatus, XPLMKeyFlags, XPLMMouseStatus};
+#[allow(clippy::wildcard_imports)]
+use xplane_sys::*;
 
 use crate::{make_x, NoSendSync};
 
 use super::geometry::{Point, Rect};
 
+/// Struct to access window APIs.
 pub struct WindowApi {
     _phantom: NoSendSync,
 }
@@ -155,7 +151,8 @@ impl Window {
             decorateAsFloatingWindow: XPLMWindowDecoration::None,
             #[cfg(feature = "XPLM300")]
             layer: XPLMWindowLayer::FloatingWindows,
-            handleRightClickFunc: None,
+            #[cfg(feature = "XPLM300")]
+            handleRightClickFunc: Some(window_mouse),
         };
 
         let window_id = unsafe { xplane_sys::XPLMCreateWindowEx(&mut window_info) };
@@ -222,8 +219,10 @@ impl Drop for Window {
 
 /// Callback in which windows are drawn
 unsafe extern "C" fn window_draw(_window: xplane_sys::XPLMWindowID, refcon: *mut c_void) {
-    let window = refcon.cast::<Window>().as_mut().unwrap(); // This pointer should not be null.
-    window.delegate.as_mut().unwrap().draw(window); // This will not be a null pointer.
+    let window = unsafe { refcon.cast::<Window>().as_mut().unwrap() }; // This pointer should not be null.
+    unsafe {
+        window.delegate.as_mut().unwrap().draw(window);
+    } // This will not be a null pointer.
 }
 
 /// Keyboard callback
@@ -238,12 +237,14 @@ unsafe extern "C" fn window_key(
     if losing_focus == 0 {
         match KeyEvent::from_xplm(key, flags, virtual_key) {
             Ok(event) => {
-                let window = refcon.cast::<Window>().as_mut().unwrap(); // This pointer should not be null.
-                window
-                    .delegate
-                    .as_mut()
-                    .unwrap()
-                    .keyboard_event(window, event); // This will not be a null pointer.
+                let window = unsafe { refcon.cast::<Window>().as_mut().unwrap() }; // This pointer should not be null.
+                unsafe {
+                    window
+                        .delegate
+                        .as_mut()
+                        .unwrap() // This will not be a null pointer.
+                        .keyboard_event(window, event);
+                }
             }
             Err(e) => {
                 let mut x = make_x();
@@ -265,8 +266,8 @@ unsafe extern "C" fn window_mouse(
     if let Ok(action) = MouseAction::try_from(status) {
         let position = Point::from((x, y));
         let event = MouseEvent::new(position, action);
-        let window = refcon.cast::<Window>().as_mut().unwrap(); // This pointer should not be null.
-        let propagate = window.delegate.as_mut().unwrap().mouse_event(window, event); // This will not be a null pointer.
+        let window = unsafe { refcon.cast::<Window>().as_mut().unwrap() }; // This pointer should not be null.
+        let propagate = unsafe { window.delegate.as_mut().unwrap().mouse_event(window, event) }; // This will not be a null pointer.
         i32::from(!propagate)
     } else {
         // Propagate
@@ -281,12 +282,14 @@ unsafe extern "C" fn window_cursor(
     y: c_int,
     refcon: *mut c_void,
 ) -> xplane_sys::XPLMCursorStatus {
-    let window = refcon.cast::<Window>().as_mut().unwrap(); // This pointer should not be null.
-    let cursor = window
-        .delegate
-        .as_mut()
-        .unwrap()
-        .cursor(window, Point::from((x, y))); // This will not be a null pointer.
+    let window = unsafe { refcon.cast::<Window>().as_mut().unwrap() }; // This pointer should not be null.
+    let cursor = unsafe {
+        window
+            .delegate
+            .as_mut()
+            .unwrap() // This will not be a null pointer.
+            .cursor(window, Point::from((x, y)))
+    };
     cursor.into()
 }
 
@@ -309,12 +312,14 @@ unsafe extern "C" fn window_scroll(
     };
     let event = ScrollEvent::new(position, dx, dy);
 
-    let window = refcon.cast::<Window>().as_mut().unwrap(); // This pointer should not be null.
-    let propagate = window
-        .delegate
-        .as_mut()
-        .unwrap()
-        .scroll_event(window, event); // This will not be a null pointer.
+    let window = unsafe { refcon.cast::<Window>().as_mut().unwrap() }; // This pointer should not be null.
+    let propagate = unsafe {
+        window
+            .delegate
+            .as_mut()
+            .unwrap() // This will not be a null pointer.
+            .scroll_event(window, event)
+    };
     i32::from(!propagate)
 }
 
@@ -328,261 +333,142 @@ pub enum KeyAction {
 }
 
 /// Keys that may be pressed
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, TryFromPrimitive, IntoPrimitive)]
+#[allow(missing_docs)]
+#[repr(u32)]
 pub enum Key {
-    Back,
-    Tab,
-    Clear,
-    Return,
-    Escape,
-    Space,
-    Prior,
-    Next,
-    End,
-    Home,
-    Left,
-    Up,
-    Right,
-    Down,
-    Select,
-    Print,
-    Execute,
-    Snapshot,
-    Insert,
-    Delete,
-    Help,
-    /// The 0 key at the top of a keyboard
-    Key0,
-    /// The 1 key at the top of a keyboard
-    Key1,
-    /// The 2 key at the top of a keyboard
-    Key2,
-    /// The 3 key at the top of a keyboard
-    Key3,
-    /// The 4 key at the top of a keyboard
-    Key4,
-    /// The 5 key at the top of a keyboard
-    Key5,
-    /// The 6 key at the top of a keyboard
-    Key6,
-    /// The 7 key at the top of a keyboard
-    Key7,
-    /// The 8 key at the top of a keyboard
-    Key8,
-    /// The 9 key at the top of a keyboard
-    Key9,
-    A,
-    B,
-    C,
-    D,
-    E,
-    F,
-    G,
-    H,
-    I,
-    J,
-    K,
-    L,
-    M,
-    N,
-    O,
-    P,
-    Q,
-    R,
-    S,
-    T,
-    U,
-    V,
-    W,
-    X,
-    Y,
-    Z,
+    Back = XPLM_VK_BACK,
+    Tab = XPLM_VK_TAB,
+    Clear = XPLM_VK_CLEAR,
+    Return = XPLM_VK_RETURN,
+    Escape = XPLM_VK_ESCAPE,
+    Space = XPLM_VK_SPACE,
+    Prior = XPLM_VK_PRIOR,
+    Next = XPLM_VK_NEXT,
+    End = XPLM_VK_END,
+    Home = XPLM_VK_HOME,
+    Left = XPLM_VK_LEFT,
+    Up = XPLM_VK_UP,
+    Right = XPLM_VK_RIGHT,
+    Down = XPLM_VK_DOWN,
+    Select = XPLM_VK_SELECT,
+    Print = XPLM_VK_PRINT,
+    Execute = XPLM_VK_EXECUTE,
+    Snapshot = XPLM_VK_SNAPSHOT,
+    Insert = XPLM_VK_INSERT,
+    Delete = XPLM_VK_DELETE,
+    Help = XPLM_VK_HELP,
+    /// The 0 key in the number row.
+    Key0 = XPLM_VK_0,
+    /// The 1 key in the number row
+    Key1 = XPLM_VK_1,
+    /// The 2 key in the number row
+    Key2 = XPLM_VK_2,
+    /// The 3 key in the number row
+    Key3 = XPLM_VK_3,
+    /// The 4 key in the number row
+    Key4 = XPLM_VK_4,
+    /// The 5 key in the number row
+    Key5 = XPLM_VK_5,
+    /// The 6 key in the number row
+    Key6 = XPLM_VK_6,
+    /// The 7 key in the number row
+    Key7 = XPLM_VK_7,
+    /// The 8 key in the number row
+    Key8 = XPLM_VK_8,
+    /// The 9 key in the number row
+    Key9 = XPLM_VK_9,
+    A = XPLM_VK_A,
+    B = XPLM_VK_B,
+    C = XPLM_VK_C,
+    D = XPLM_VK_D,
+    E = XPLM_VK_E,
+    F = XPLM_VK_F,
+    G = XPLM_VK_G,
+    H = XPLM_VK_H,
+    I = XPLM_VK_I,
+    J = XPLM_VK_J,
+    K = XPLM_VK_K,
+    L = XPLM_VK_L,
+    M = XPLM_VK_M,
+    N = XPLM_VK_N,
+    O = XPLM_VK_O,
+    P = XPLM_VK_P,
+    Q = XPLM_VK_Q,
+    R = XPLM_VK_R,
+    S = XPLM_VK_S,
+    T = XPLM_VK_T,
+    U = XPLM_VK_U,
+    V = XPLM_VK_V,
+    W = XPLM_VK_W,
+    X = XPLM_VK_X,
+    Y = XPLM_VK_Y,
+    Z = XPLM_VK_Z,
     /// The 0 key on the numerical keypad
-    Numpad0,
+    Numpad0 = XPLM_VK_NUMPAD0,
     /// The 1 key on the numerical keypad
-    Numpad1,
+    Numpad1 = XPLM_VK_NUMPAD1,
     /// The 2 key on the numerical keypad
-    Numpad2,
+    Numpad2 = XPLM_VK_NUMPAD2,
     /// The 3 key on the numerical keypad
-    Numpad3,
+    Numpad3 = XPLM_VK_NUMPAD3,
     /// The 4 key on the numerical keypad
-    Numpad4,
+    Numpad4 = XPLM_VK_NUMPAD4,
     /// The 5 key on the numerical keypad
-    Numpad5,
+    Numpad5 = XPLM_VK_NUMPAD5,
     /// The 6 key on the numerical keypad
-    Numpad6,
+    Numpad6 = XPLM_VK_NUMPAD6,
     /// The 7 key on the numerical keypad
-    Numpad7,
+    Numpad7 = XPLM_VK_NUMPAD7,
     /// The 8 key on the numerical keypad
-    Numpad8,
+    Numpad8 = XPLM_VK_NUMPAD8,
     /// The 9 key on the numerical keypad
-    Numpad9,
-    Multiply,
-    Add,
-    Separator,
-    Subtract,
-    Decimal,
-    Divide,
-    F1,
-    F2,
-    F3,
-    F4,
-    F5,
-    F6,
-    F7,
-    F8,
-    F9,
-    F10,
-    F11,
-    F12,
-    F13,
-    F14,
-    F15,
-    F16,
-    F17,
-    F18,
-    F19,
-    F20,
-    F21,
-    F22,
-    F23,
-    F24,
-    Equal,
-    Minus,
-    ClosingBrace,
-    OpeningBrace,
-    Quote,
-    Semicolon,
-    Backslash,
-    Comma,
-    Slash,
-    Period,
-    Backquote,
+    Numpad9 = XPLM_VK_NUMPAD9,
+    Multiply = XPLM_VK_MULTIPLY,
+    Add = XPLM_VK_ADD,
+    Separator = XPLM_VK_SEPARATOR,
+    Subtract = XPLM_VK_SUBTRACT,
+    Decimal = XPLM_VK_DECIMAL,
+    Divide = XPLM_VK_DIVIDE,
+    F1 = XPLM_VK_F1,
+    F2 = XPLM_VK_F2,
+    F3 = XPLM_VK_F3,
+    F4 = XPLM_VK_F4,
+    F5 = XPLM_VK_F5,
+    F6 = XPLM_VK_F6,
+    F7 = XPLM_VK_F7,
+    F8 = XPLM_VK_F8,
+    F9 = XPLM_VK_F9,
+    F10 = XPLM_VK_F10,
+    F11 = XPLM_VK_F11,
+    F12 = XPLM_VK_F12,
+    F13 = XPLM_VK_F13,
+    F14 = XPLM_VK_F14,
+    F15 = XPLM_VK_F15,
+    F16 = XPLM_VK_F16,
+    F17 = XPLM_VK_F17,
+    F18 = XPLM_VK_F18,
+    F19 = XPLM_VK_F19,
+    F20 = XPLM_VK_F20,
+    F21 = XPLM_VK_F21,
+    F22 = XPLM_VK_F22,
+    F23 = XPLM_VK_F23,
+    F24 = XPLM_VK_F24,
+    Equal = XPLM_VK_EQUAL,
+    Minus = XPLM_VK_MINUS,
+    ClosingBrace = XPLM_VK_RBRACE,
+    OpeningBrace = XPLM_VK_LBRACE,
+    Quote = XPLM_VK_QUOTE,
+    Semicolon = XPLM_VK_SEMICOLON,
+    Backslash = XPLM_VK_BACKSLASH,
+    Comma = XPLM_VK_COMMA,
+    Slash = XPLM_VK_SLASH,
+    Period = XPLM_VK_PERIOD,
+    Backquote = XPLM_VK_BACKQUOTE,
     /// Enter, also known as return in Mac OS
-    Enter,
-    NumpadEnter,
-    NumpadEqual,
-}
-
-impl Key {
-    /// Converts an XPLM virtual key code into a Key
-    #[allow(clippy::cast_sign_loss, clippy::too_many_lines)]
-    fn from_xplm(xplm_key: c_char) -> Option<Self> {
-        match xplm_key as u32 {
-            xplane_sys::XPLM_VK_BACK => Some(Key::Back),
-            xplane_sys::XPLM_VK_TAB => Some(Key::Tab),
-            xplane_sys::XPLM_VK_CLEAR => Some(Key::Clear),
-            xplane_sys::XPLM_VK_RETURN => Some(Key::Return),
-            xplane_sys::XPLM_VK_ESCAPE => Some(Key::Escape),
-            xplane_sys::XPLM_VK_SPACE => Some(Key::Space),
-            xplane_sys::XPLM_VK_PRIOR => Some(Key::Prior),
-            xplane_sys::XPLM_VK_NEXT => Some(Key::Next),
-            xplane_sys::XPLM_VK_END => Some(Key::End),
-            xplane_sys::XPLM_VK_HOME => Some(Key::Home),
-            xplane_sys::XPLM_VK_LEFT => Some(Key::Left),
-            xplane_sys::XPLM_VK_UP => Some(Key::Up),
-            xplane_sys::XPLM_VK_RIGHT => Some(Key::Right),
-            xplane_sys::XPLM_VK_DOWN => Some(Key::Down),
-            xplane_sys::XPLM_VK_SELECT => Some(Key::Select),
-            xplane_sys::XPLM_VK_PRINT => Some(Key::Print),
-            xplane_sys::XPLM_VK_EXECUTE => Some(Key::Execute),
-            xplane_sys::XPLM_VK_SNAPSHOT => Some(Key::Snapshot),
-            xplane_sys::XPLM_VK_INSERT => Some(Key::Insert),
-            xplane_sys::XPLM_VK_DELETE => Some(Key::Delete),
-            xplane_sys::XPLM_VK_HELP => Some(Key::Help),
-            xplane_sys::XPLM_VK_0 => Some(Key::Key0),
-            xplane_sys::XPLM_VK_1 => Some(Key::Key1),
-            xplane_sys::XPLM_VK_2 => Some(Key::Key2),
-            xplane_sys::XPLM_VK_3 => Some(Key::Key3),
-            xplane_sys::XPLM_VK_4 => Some(Key::Key4),
-            xplane_sys::XPLM_VK_5 => Some(Key::Key5),
-            xplane_sys::XPLM_VK_6 => Some(Key::Key6),
-            xplane_sys::XPLM_VK_7 => Some(Key::Key7),
-            xplane_sys::XPLM_VK_8 => Some(Key::Key8),
-            xplane_sys::XPLM_VK_9 => Some(Key::Key9),
-            xplane_sys::XPLM_VK_A => Some(Key::A),
-            xplane_sys::XPLM_VK_B => Some(Key::B),
-            xplane_sys::XPLM_VK_C => Some(Key::C),
-            xplane_sys::XPLM_VK_D => Some(Key::D),
-            xplane_sys::XPLM_VK_E => Some(Key::E),
-            xplane_sys::XPLM_VK_F => Some(Key::F),
-            xplane_sys::XPLM_VK_G => Some(Key::G),
-            xplane_sys::XPLM_VK_H => Some(Key::H),
-            xplane_sys::XPLM_VK_I => Some(Key::I),
-            xplane_sys::XPLM_VK_J => Some(Key::J),
-            xplane_sys::XPLM_VK_K => Some(Key::K),
-            xplane_sys::XPLM_VK_L => Some(Key::L),
-            xplane_sys::XPLM_VK_M => Some(Key::M),
-            xplane_sys::XPLM_VK_N => Some(Key::N),
-            xplane_sys::XPLM_VK_O => Some(Key::O),
-            xplane_sys::XPLM_VK_P => Some(Key::P),
-            xplane_sys::XPLM_VK_Q => Some(Key::Q),
-            xplane_sys::XPLM_VK_R => Some(Key::R),
-            xplane_sys::XPLM_VK_S => Some(Key::S),
-            xplane_sys::XPLM_VK_T => Some(Key::T),
-            xplane_sys::XPLM_VK_U => Some(Key::U),
-            xplane_sys::XPLM_VK_V => Some(Key::V),
-            xplane_sys::XPLM_VK_W => Some(Key::W),
-            xplane_sys::XPLM_VK_X => Some(Key::X),
-            xplane_sys::XPLM_VK_Y => Some(Key::Y),
-            xplane_sys::XPLM_VK_Z => Some(Key::Z),
-            xplane_sys::XPLM_VK_NUMPAD0 => Some(Key::Numpad0),
-            xplane_sys::XPLM_VK_NUMPAD1 => Some(Key::Numpad1),
-            xplane_sys::XPLM_VK_NUMPAD2 => Some(Key::Numpad2),
-            xplane_sys::XPLM_VK_NUMPAD3 => Some(Key::Numpad3),
-            xplane_sys::XPLM_VK_NUMPAD4 => Some(Key::Numpad4),
-            xplane_sys::XPLM_VK_NUMPAD5 => Some(Key::Numpad5),
-            xplane_sys::XPLM_VK_NUMPAD6 => Some(Key::Numpad6),
-            xplane_sys::XPLM_VK_NUMPAD7 => Some(Key::Numpad7),
-            xplane_sys::XPLM_VK_NUMPAD8 => Some(Key::Numpad8),
-            xplane_sys::XPLM_VK_NUMPAD9 => Some(Key::Numpad9),
-            xplane_sys::XPLM_VK_MULTIPLY => Some(Key::Multiply),
-            xplane_sys::XPLM_VK_ADD => Some(Key::Add),
-            xplane_sys::XPLM_VK_SEPARATOR => Some(Key::Separator),
-            xplane_sys::XPLM_VK_SUBTRACT => Some(Key::Subtract),
-            xplane_sys::XPLM_VK_DECIMAL => Some(Key::Decimal),
-            xplane_sys::XPLM_VK_DIVIDE => Some(Key::Divide),
-            xplane_sys::XPLM_VK_F1 => Some(Key::F1),
-            xplane_sys::XPLM_VK_F2 => Some(Key::F2),
-            xplane_sys::XPLM_VK_F3 => Some(Key::F3),
-            xplane_sys::XPLM_VK_F4 => Some(Key::F4),
-            xplane_sys::XPLM_VK_F5 => Some(Key::F5),
-            xplane_sys::XPLM_VK_F6 => Some(Key::F6),
-            xplane_sys::XPLM_VK_F7 => Some(Key::F7),
-            xplane_sys::XPLM_VK_F8 => Some(Key::F8),
-            xplane_sys::XPLM_VK_F9 => Some(Key::F9),
-            xplane_sys::XPLM_VK_F10 => Some(Key::F10),
-            xplane_sys::XPLM_VK_F11 => Some(Key::F11),
-            xplane_sys::XPLM_VK_F12 => Some(Key::F12),
-            xplane_sys::XPLM_VK_F13 => Some(Key::F13),
-            xplane_sys::XPLM_VK_F14 => Some(Key::F14),
-            xplane_sys::XPLM_VK_F15 => Some(Key::F15),
-            xplane_sys::XPLM_VK_F16 => Some(Key::F16),
-            xplane_sys::XPLM_VK_F17 => Some(Key::F17),
-            xplane_sys::XPLM_VK_F18 => Some(Key::F18),
-            xplane_sys::XPLM_VK_F19 => Some(Key::F19),
-            xplane_sys::XPLM_VK_F20 => Some(Key::F20),
-            xplane_sys::XPLM_VK_F21 => Some(Key::F21),
-            xplane_sys::XPLM_VK_F22 => Some(Key::F22),
-            xplane_sys::XPLM_VK_F23 => Some(Key::F23),
-            xplane_sys::XPLM_VK_F24 => Some(Key::F24),
-            xplane_sys::XPLM_VK_EQUAL => Some(Key::Equal),
-            xplane_sys::XPLM_VK_MINUS => Some(Key::Minus),
-            xplane_sys::XPLM_VK_RBRACE => Some(Key::ClosingBrace),
-            xplane_sys::XPLM_VK_LBRACE => Some(Key::OpeningBrace),
-            xplane_sys::XPLM_VK_QUOTE => Some(Key::Quote),
-            xplane_sys::XPLM_VK_SEMICOLON => Some(Key::Semicolon),
-            xplane_sys::XPLM_VK_BACKSLASH => Some(Key::Backslash),
-            xplane_sys::XPLM_VK_COMMA => Some(Key::Comma),
-            xplane_sys::XPLM_VK_SLASH => Some(Key::Slash),
-            xplane_sys::XPLM_VK_PERIOD => Some(Key::Period),
-            xplane_sys::XPLM_VK_BACKQUOTE => Some(Key::Backquote),
-            xplane_sys::XPLM_VK_ENTER => Some(Key::Enter),
-            xplane_sys::XPLM_VK_NUMPAD_ENT => Some(Key::NumpadEnter),
-            xplane_sys::XPLM_VK_NUMPAD_EQ => Some(Key::NumpadEqual),
-            _ => None,
-        }
-    }
+    Enter = XPLM_VK_ENTER,
+    NumpadEnter = XPLM_VK_NUMPAD_ENT,
+    NumpadEqual = XPLM_VK_NUMPAD_EQ,
 }
 
 /// An event associated with a key press
@@ -625,7 +511,7 @@ impl KeyEvent {
         let control_pressed = flags.field_true(XPLMKeyFlags::Control);
         let shift_pressed = flags.field_true(XPLMKeyFlags::Shift);
         let alt_pressed = flags.field_true(XPLMKeyFlags::OptionAlt);
-        let Some(key) = Key::from_xplm(virtual_key) else {
+        let Ok(key) = Key::try_from_primitive(virtual_key as u32) else {
             return Err(KeyEventError::InvalidKey { key: virtual_key });
         };
 

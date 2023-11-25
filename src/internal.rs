@@ -1,11 +1,8 @@
-// Copyright (c) 2023 Julia DeMille
+// Copyright (c) 2023 Julia DeMille.
 //
-// Licensed under the EUPL, Version 1.2
-//
-// You may not use this work except in compliance with the Licence.
-// You should have received a copy of the Licence along with this work. If not, see:
-// <https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12>.
-// See the Licence for the specific language governing permissions and limitations under the Licence.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use core::ffi::c_char;
 use std::{ffi::CString, ptr};
@@ -21,7 +18,9 @@ pub unsafe fn copy_to_c_buffer(mut src: String, dest: *mut c_char) {
     let src_c = CString::new(src).unwrap_or_else(|_| CString::new("<invalid>").unwrap());
     let src_c_length = src_c.to_bytes_with_nul().len();
     debug_assert!(src_c_length <= 256);
-    ptr::copy_nonoverlapping(src_c.as_ptr(), dest, src_c_length);
+    unsafe {
+        ptr::copy_nonoverlapping(src_c.as_ptr(), dest, src_c_length);
+    }
 }
 
 /// Performs initialization required for the XPLM crate to work correctly

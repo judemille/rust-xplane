@@ -1,11 +1,8 @@
-// Copyright (c) 2023 Julia DeMille
+// Copyright (c) 2023 Julia DeMille.
 //
-// Licensed under the EUPL, Version 1.2
-//
-// You may not use this work except in compliance with the Licence.
-// You should have received a copy of the Licence along with this work. If not, see:
-// <https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12>.
-// See the Licence for the specific language governing permissions and limitations under the Licence.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 //! # Flight loop callbacks
 //!
@@ -117,7 +114,7 @@ impl<T: 'static> FlightLoop<T> {
     /// After the callback is first called, it will continue to be called with that interval.
     #[allow(clippy::cast_precision_loss)]
     pub fn schedule_after(&mut self, time: Duration) {
-        let seconds_f = (time.as_secs() as f32) + (1e-9_f32 * time.subsec_nanos() as f32);
+        let seconds_f = time.as_secs_f32();
         unsafe {
             (*self.data).set_interval(LoopResult::Seconds(seconds_f));
         }
@@ -178,7 +175,9 @@ impl<T> LoopData<T> {
 
     fn set_interval(&mut self, loop_result: LoopResult) {
         let loop_id = self.loop_id.expect("Loop ID not set");
-        unsafe { xplane_sys::XPLMScheduleFlightLoop(loop_id, loop_result.into(), 1) };
+        unsafe {
+            xplane_sys::XPLMScheduleFlightLoop(loop_id, loop_result.into(), 1);
+        }
         self.loop_result = Some(loop_result);
     }
 }
@@ -318,12 +317,14 @@ unsafe extern "C" fn flight_loop_callback<T: 'static>(
         since_call: Duration::from_secs_f32(since_last_call),
         since_loop: Duration::from_secs_f32(since_loop),
         counter,
-        state_data: (*loop_data).loop_state,
+        state_data: unsafe { (*loop_data).loop_state },
     };
     let mut x = make_x();
-    let res = (*(*loop_data).callback).flight_loop(&mut x, &mut state);
+    let res = unsafe { (*(*loop_data).callback).flight_loop(&mut x, &mut state) };
 
-    (*loop_data).loop_result = Some(res);
+    unsafe {
+        (*loop_data).loop_result = Some(res);
+    }
 
     // Return the next loop time
     f32::from(res)
@@ -416,5 +417,16 @@ mod tests {
             let res = flight_loop_callback::<TestLoopState>(2.0f32, 2.0f32, 4, refcon);
             assert_eq!(res, 0.0f32);
         }
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)]
+    fn test_duration() {
+        let dur = Duration::from_secs_f32(2.5f32);
+        let loop_res: LoopResult = dur.into();
+        let LoopResult::Seconds(secs) = loop_res else {
+            panic!("Conversion failure somehow!");
+        };
+        assert_eq!(secs, 2.5f32);
     }
 }

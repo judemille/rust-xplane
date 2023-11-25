@@ -1,11 +1,8 @@
-// Copyright (c) 2023 Julia DeMille
+// Copyright (c) 2023 Julia DeMille.
 //
-// Licensed under the EUPL, Version 1.2
-//
-// You may not use this work except in compliance with the Licence.
-// You should have received a copy of the Licence along with this work. If not, see:
-// <https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12>.
-// See the Licence for the specific language governing permissions and limitations under the Licence.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use core::ffi::{c_int, c_void};
 use std::{
@@ -23,11 +20,12 @@ use xplane_sys::XPLMMenuCheck;
 
 use crate::{make_x, NoSendSync, XPAPI};
 
-pub struct MenuAPI {
+/// Struct to access X-Plane's menu API.
+pub struct MenuApi {
     pub(crate) _phantom: NoSendSync,
 }
 
-impl MenuAPI {
+impl MenuApi {
     /// Creates a new menu with the provided name
     /// # Errors
     /// Returns an error if the name contains a NUL byte
@@ -770,17 +768,23 @@ fn check_c_string(text: &str) -> Result<(), NulError> {
 /// `item_ref` is a pointer to the relevant Item, allocated in an Rc
 unsafe extern "C" fn menu_handler(_menu_ref: *mut c_void, item_ref: *mut c_void) {
     let item = item_ref as *const Item;
-    (*item).handle_click();
+    unsafe {
+        (*item).handle_click();
+    }
 }
 
 #[derive(Snafu, Debug)]
 #[allow(clippy::enum_variant_names)] // These variant names make sense.
+/// Errors that may come from interacting with the menu API.
 pub enum MenuError {
     #[snafu(display("This item is already in a menu, and so cannot be added to one."))]
+    /// The item is already in a menu, and so cannot be added to one.
     AlreadyInMenu,
     #[snafu(display("This item is not in a menu. The requested action cannot be done."))]
+    /// The item is not in a menu. Whatever you're trying to do requires it to be in one.
     NotInMenu,
     #[snafu(display("This item is not in the requested menu at the stated index, and so cannot be removed from it."))]
+    /// The item is not in the requested menu at the stated index, and so cannot be removed from it.
     NotInThatMenu,
 }
 

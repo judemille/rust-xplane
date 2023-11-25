@@ -1,32 +1,20 @@
-// Copyright (c) 2023 Julia DeMille
+// Copyright (c) 2023 Julia DeMille.
 //
-// Licensed under the EUPL, Version 1.2
-//
-// You may not use this work except in compliance with the Licence.
-// You should have received a copy of the Licence along with this work. If not, see:
-// <https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12>.
-// See the Licence for the specific language governing permissions and limitations under the Licence.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use core::ffi::c_int;
 use std::{
-    ffi::{CStr, CString},
+    ffi::{c_void, CStr, CString},
     marker::PhantomData,
+    path::Path,
 };
 
+use snafu::prelude::*;
 use xplane_sys::{self, XPLMGetPluginInfo};
 
-use crate::{ffi::StringBuffer, NoSendSync};
-
-/// Returns an iterator over all loaded plugins
-#[must_use]
-pub fn all_plugins() -> Plugins {
-    Plugins {
-        next: 0,
-        // Subtract 1 because X-Plane is considered a plugin
-        count: unsafe { xplane_sys::XPLMCountPlugins() - 1 },
-        _phantom: PhantomData,
-    }
-}
+use crate::{ffi::StringBuffer, message::MessageId, NoSendSync};
 
 /// An iterator over all loaded plugins
 pub struct Plugins {
@@ -74,33 +62,12 @@ pub struct Plugin {
     _phantom: NoSendSync,
 }
 
+#[derive(Debug, Snafu)]
+#[snafu(display("The requested plugin could not be enabled."))]
+/// Returned when a plugin could not be enabled. No further information is available.
+pub struct PluginEnableError;
+
 impl Plugin {
-    /// Looks for a plugin with the provided signature and returns it if it exists
-    #[must_use]
-    pub fn from_signature(signature: &str) -> Option<Self> {
-        let signature = CString::new(signature).ok()?;
-        let plugin_id = unsafe { xplane_sys::XPLMFindPluginBySignature(signature.as_ptr()) };
-        if plugin_id == xplane_sys::XPLM_NO_PLUGIN_ID {
-            None
-        } else {
-            Some(unsafe { get_plugin(plugin_id) })
-        }
-    }
-
-    /// Returns the plugin that is currently running
-    /// # Panics
-    /// Panics if you've somehow managed to call this without being in a plugin (or X-Plane has no ID for your plugin, somehow). Congratulations.
-    #[must_use]
-    pub fn this_plugin() -> Plugin {
-        let plugin_id = unsafe { xplane_sys::XPLMGetMyID() };
-        assert_ne!(
-            plugin_id,
-            xplane_sys::XPLM_NO_PLUGIN_ID,
-            "XPLMGetMyId() returned no plugin ID. Please get in touch -- this should be impossible."
-        );
-        unsafe { get_plugin(plugin_id) }
-    }
-
     /// Returns the name of this plugin
     #[must_use]
     pub fn name_c(&self) -> &CStr {
@@ -124,20 +91,41 @@ impl Plugin {
 
     /// Returns true if this plugin is enabled
     #[must_use]
-    pub fn enabled(&mut self) -> bool {
+    pub fn is_enabled(&mut self) -> bool {
         unsafe { xplane_sys::XPLMIsPluginEnabled(self.id) == 1 }
     }
 
-    /// Enables or disables the plugin
-    pub fn set_enabled(&mut self, enabled: bool) {
-        if enabled {
-            unsafe {
-                xplane_sys::XPLMEnablePlugin(self.id);
+    /// Enables the plugin.
+    /// # Errors
+    /// A [`PluginEnableError`] is returned if the plugin could not be enabled.
+    /// <div class="warning"> Disabling and enabling plugins when the simulator is running can sometimes be catastrophic.
+    /// Be very careful when doing this.</div>
+    pub fn enable(&mut self) -> Result<(), PluginEnableError> {
+        unsafe {
+            if xplane_sys::XPLMEnablePlugin(self.id) == 1 {
+                Ok(())
+            } else {
+                Err(PluginEnableError)
             }
-        } else {
-            unsafe {
-                xplane_sys::XPLMDisablePlugin(self.id);
-            }
+        }
+    }
+
+    /// Disables the plugin.
+    /// <div class="warning"> Disabling and enabling plugins when the simulator is running can sometimes be catastrophic.
+    /// Be very careful when doing this.</div>
+    pub fn disable(&mut self) {
+        unsafe {
+            xplane_sys::XPLMDisablePlugin(self.id);
+        }
+    }
+
+    /// Send a message to this function.
+    /// # Safety
+    /// You are sending a raw pointer to memory to code you probably don't control.
+    /// Here be dragons.
+    pub unsafe fn send_message(&mut self, message_id: MessageId, param: *mut c_void) {
+        unsafe {
+            xplane_sys::XPLMSendMessageToPlugin(self.id, message_id.into(), param);
         }
     }
 }
@@ -164,5 +152,87 @@ unsafe fn get_plugin(id: xplane_sys::XPLMPluginID) -> Plugin {
         signature: sig.into(),
         description: desc.into(),
         _phantom: PhantomData,
+    }
+}
+
+/// Access struct for the X-Plane plugin API.
+pub struct PluginApi {
+    pub(crate) _phantom: NoSendSync,
+}
+
+impl PluginApi {
+    /// Looks for a plugin with the provided signature and returns it if it exists
+    #[must_use]
+    pub fn from_signature(&mut self, signature: &str) -> Option<Plugin> {
+        let signature = CString::new(signature).ok()?;
+        let plugin_id = unsafe { xplane_sys::XPLMFindPluginBySignature(signature.as_ptr()) };
+        if plugin_id == xplane_sys::XPLM_NO_PLUGIN_ID {
+            None
+        } else {
+            Some(unsafe { get_plugin(plugin_id) })
+        }
+    }
+
+    /// Looks for a plugin at the provided absolute path, and returns it if it exists.
+    #[must_use]
+    pub fn from_path(&mut self, path: &Path) -> Option<Plugin> {
+        let path_c = CString::new(path.as_os_str().as_encoded_bytes()).ok()?;
+        let plugin_id = unsafe { xplane_sys::XPLMFindPluginByPath(path_c.as_ptr()) };
+        if plugin_id == xplane_sys::XPLM_NO_PLUGIN_ID {
+            None
+        } else {
+            Some(unsafe { get_plugin(plugin_id) })
+        }
+    }
+
+    /// Returns the plugin that is currently running
+    /// # Panics
+    /// Panics if you've somehow managed to call this without being in a plugin (or X-Plane has no ID for your plugin, somehow). Congratulations.
+    #[must_use]
+    pub fn this_plugin(&mut self) -> Plugin {
+        let plugin_id = unsafe { xplane_sys::XPLMGetMyID() };
+        assert_ne!(
+            plugin_id,
+            xplane_sys::XPLM_NO_PLUGIN_ID,
+            "XPLMGetMyId() returned no plugin ID. Please get in touch -- this should be impossible."
+        );
+        unsafe { get_plugin(plugin_id) }
+    }
+
+    /// Returns an iterator over all loaded plugins
+    #[must_use]
+    pub fn all_plugins(&mut self) -> Plugins {
+        Plugins {
+            next: 0,
+            // Subtract 1 because X-Plane is considered a plugin
+            count: unsafe { xplane_sys::XPLMCountPlugins() - 1 },
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Reload all plugins.
+    /// After the callback in which this function is called, is returned from,
+    /// the plugin disable and then stop functions will be called.
+    /// The plugin start process will then occur as if the sim was starting up.
+    /// <div class="warning"> Many plugins will behave in strange manners, or even cause a crash if reloaded at runtime.
+    /// Reloading plugins may cause issues, including but not limited to a simulator crash. </div>
+    pub fn reload_all(&mut self) {
+        unsafe {
+            xplane_sys::XPLMReloadPlugins();
+        }
+    }
+
+    /// Broadcast a message to all plugins.
+    /// # Safety
+    /// You are passing in a raw pointer to memory, that any other plugin may do something with.
+    /// Here be dragons.
+    pub unsafe fn broadcast_plugin_message(&mut self, message_id: MessageId, param: *mut c_void) {
+        unsafe {
+            xplane_sys::XPLMSendMessageToPlugin(
+                xplane_sys::XPLM_NO_PLUGIN_ID,
+                message_id.into(),
+                param,
+            );
+        }
     }
 }

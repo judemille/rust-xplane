@@ -1,10 +1,17 @@
+// Copyright (c) 2023 Julia DeMille.
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 use std::path::PathBuf;
 
-use crate::{ffi::StringBuffer, NoSendSync, XPAPI};
+use crate::{ffi::StringBuffer, NoSendSync, XPAPI, feature::Feature};
 use xplane_sys::{XPLMGetNthAircraftModel, XPLMGetPrefsPath, XPLMGetSystemPath};
 
+/// Struct to access X-Plane's path API.
 pub struct PathApi {
-    pub(super) _phantom: NoSendSync,
+    pub(crate) _phantom: NoSendSync,
 }
 
 impl PathApi {
@@ -35,8 +42,8 @@ impl PathApi {
     pub fn acf_path(&mut self, acf_id: i32) -> PathBuf {
         // https://developer.x-plane.com/sdk/XPLMGetNthAircraftModel/
 
-        let mut filename = StringBuffer::new(256);
-        let mut path = StringBuffer::new(512);
+        let mut filename = StringBuffer::new(257);
+        let mut path = StringBuffer::new(513);
 
         unsafe {
             XPLMGetNthAircraftModel(
@@ -55,7 +62,7 @@ impl PathApi {
     /// Panics if X-Plane provides invalid UTF-8, or if there is not a parent
     /// to the file in the preferences folder it gives. Both cases should be impossible.
     pub fn prefs_folder(&mut self) -> PathBuf {
-        let mut folder = StringBuffer::new(512);
+        let mut folder = StringBuffer::new(513);
         unsafe {
             XPLMGetPrefsPath(folder.as_mut_ptr());
         }
@@ -69,8 +76,8 @@ pub(crate) fn path_init(x: &mut XPAPI) {
     // Feature specified to exist in SDK 2.1
     let native_path_feature = x
         .features
-        .find("XPLM_USE_NATIVE_PATHS")
+        .find(Feature::USE_NATIVE_PATHS)
         .unwrap() // Unwrap: We know that there are no NUL bytes here.
-        .expect("No native paths feature");
+        .expect("No native paths feature"); // This should always exist within a simulator new enough to support this library.
     native_path_feature.set_enabled(true);
 }

@@ -1,11 +1,8 @@
-// Copyright (c) 2023 Julia DeMille
+// Copyright (c) 2023 Julia DeMille.
 //
-// Licensed under the EUPL, Version 1.2
-//
-// You may not use this work except in compliance with the Licence.
-// You should have received a copy of the Licence along with this work. If not, see:
-// <https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12>.
-// See the Licence for the specific language governing permissions and limitations under the Licence.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 //! Foreign function interface utilities
 //!
@@ -22,7 +19,6 @@ pub struct StringBuffer {
     bytes: Vec<u8>,
 }
 
-#[allow(dead_code)]
 impl StringBuffer {
     /// Creates a new `StringBuffer` with the provided length in bytes. All bytes in the string are
     /// set to null bytes (`\0`).

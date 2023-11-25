@@ -1,11 +1,8 @@
-// Copyright (c) 2023 Julia DeMille
+// Copyright (c) 2023 Julia DeMille.
 //
-// Licensed under the EUPL, Version 1.2
-//
-// You may not use this work except in compliance with the Licence.
-// You should have received a copy of the Licence along with this work. If not, see:
-// <https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12>.
-// See the Licence for the specific language governing permissions and limitations under the Licence.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use std::{
     ffi::{CString, NulError},
@@ -224,11 +221,12 @@ impl_type!([f32]: array as XPLMDataTypeID::FloatArray);
 impl_type!([u8]: array as XPLMDataTypeID::Data);
 impl_type!([i8]: array as XPLMDataTypeID::Data);
 
-pub struct DataAPI {
+/// Access struct for X-Plane's data APIs.
+pub struct DataApi {
     pub(crate) _phantom: NoSendSync,
 }
 
-impl DataAPI {
+impl DataApi {
     /// Finds a readable dataref by its name
     /// # Errors
     /// Returns an error if the dataref does not exist or has the wrong type

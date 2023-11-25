@@ -76,20 +76,38 @@ and opposes any and all human rights violations.
  * Do not support Ukraine's struggle against their Russian oppressors.
  * Support any far-right parties or politicians (including Vladimir Putin, the GOP, AfD, FdI, and similar)
 
-I cannot stop you, but anyone observed to meet the above listed criteria interacts with the project
+I cannot stop you, but anyone observed to meet the above listed criteria who interacts with the project
 will be blocked from posting issues or pull requests.
 
 ## License
-
-Licensed under the European Union Public License, version 1.2. As the author currently resides outside the EU,
-all license disputes shall be handled in the courts of Belgium.
+Licensed under the Mozilla Public License, version 2.0.
 Any code from commit `ba89d4234c5b4d7088a40b2bb8f537f72e1e2df3` and before is dual-licensed under the Apache License and the MIT License, at your choice.
 
-## Minimum Supported Rust Version
-The MSRV of this crate is always the latest stable compiler version at the time of a given commit.
-Maybe it'll work on an older version. Maybe it won't. No guarantees.
+### What does this mean for me?
+I get it, you don't have time to read the license. Here's some bullet points on what this license means for you.
+
+ * You may combine this library with other work that is under a different license, so long as the files of this library 
+   remain separate.
+   * The code of this library, under the MPL-2.0 license (or compatible), must be made readily available to users.
+   * Recipients of the larger work must be made aware of the use of this library, its license, and how to acquire the code
+     of this library.
+ * Any modifications of this library's files must be published under the MPL-2.0.
+ * You may use this library commercially, so long as it is made clear that it is done on your own behalf, and not on the behalf
+   of the contributors.
+
+There is some more nuance than that, but those bullet points are the general gist.
 
 ### Contribution
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you shall
 be licensed as above, without any additional terms or conditions.
+
+All commits must be signed-off (`git commit -s`). This is a declaration that you have read and agree to the terms in the
+[Developer Certificate of Origin](https://developercertificate.org/) (DCO). This can be considered to a CLA, but is different in that
+your copyright remains with you. All you are doing is attesting that you can contribute code under the repository's license.
+A copy of the DCO text is kept in this repository at DCO.txt.
+
+## Minimum Supported Rust Version
+The MSRV of this crate is always the latest stable compiler version at the time of a given commit.
+Maybe it'll work on an older version. Maybe it won't. No guarantees.
+

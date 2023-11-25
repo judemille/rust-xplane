@@ -1,11 +1,8 @@
-// Copyright (c) 2023 Julia DeMille
+// Copyright (c) 2023 Julia DeMille.
 //
-// Licensed under the EUPL, Version 1.2
-//
-// You may not use this work except in compliance with the Licence.
-// You should have received a copy of the Licence along with this work. If not, see:
-// <https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12>.
-// See the Licence for the specific language governing permissions and limitations under the Licence.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use core::ffi::{c_int, c_void};
 use std::{fmt, marker::PhantomData, mem};
@@ -20,6 +17,7 @@ use xplane_sys::{
 use crate::{make_x, NoSendSync, XPAPI};
 
 #[non_exhaustive]
+#[allow(missing_docs)]
 pub enum DeviceID {
     GNS430(TwoSideDevice),
     GNS530(TwoSideDevice),
@@ -32,12 +30,14 @@ pub enum DeviceID {
     PrimusRmu(TwoSideDevice),
 }
 
+#[allow(missing_docs)]
 pub enum ThreeSideDevice {
     Pilot,
     Copilot,
     Center,
 }
 
+#[allow(missing_docs)]
 pub enum TwoSideDevice {
     Pilot,
     Copilot,
@@ -45,8 +45,10 @@ pub enum TwoSideDevice {
 
 #[derive(Debug, Snafu)]
 #[snafu(display("No match for XPLMDeviceID: {id:?}"))]
+/// The device ID was unrecognized.
 pub struct DeviceUnmatchedError {
-    id: XPLMDeviceID,
+    /// The device ID.
+    pub id: XPLMDeviceID,
 }
 
 impl TryFrom<XPLMDeviceID> for DeviceID {
@@ -119,9 +121,14 @@ impl From<DeviceID> for XPLMDeviceID {
     }
 }
 
+/// Returned from avionics callbacks.
+/// Instructs X-Plane what to do next.
 pub enum AvionicsCallbackResult {
+    /// Allow X-Plane to do its own drawing.
     AllowDraw,
+    /// Suppress further drawing of this device.
     SuppressDraw,
+    /// You're in the post-draw phase. It doesn't matter.
     Irrelevant,
 }
 
@@ -134,7 +141,10 @@ impl From<AvionicsCallbackResult> for c_int {
     }
 }
 
+/// Handlers for avionics drawing.
+/// Store some data in here if you like.
 pub trait AvionicsDrawCallback<T: 'static>: 'static {
+    /// The actual callback.
     fn do_draw(
         &mut self,
         x: &mut XPAPI,
@@ -162,9 +172,11 @@ where
 
 #[derive(Debug, Snafu)]
 #[snafu(display("X-Plane didn't give a handle for the customization. I have no way to know why."))]
+/// X-Plane didn't give a handle for the customization.
 pub struct AvionicsCustomizationError;
 
 #[derive(Debug)]
+/// An avionics customization.
 pub struct AvionicsCustomization<T: 'static> {
     data: *mut AvionicsCustomizationData<T>,
     _phantom: NoSendSync,
@@ -266,40 +278,45 @@ unsafe extern "C" fn avionics_draw_callback<T: 'static>(
     let cb_data = refcon.cast::<AvionicsCustomizationData<T>>();
     let mut x = make_x();
     if is_before == 1 {
-        if let Some(cb) = (*cb_data).cb_before {
-            (*cb)
-                .do_draw(
-                    &mut x,
-                    device_id,
-                    true,
-                    (*cb_data).state_data.as_mut().unwrap(),
-                )
-                .into()
+        if let Some(cb) = unsafe { (*cb_data).cb_before } {
+            unsafe {
+                (*cb)
+                    .do_draw(
+                        &mut x,
+                        device_id,
+                        true,
+                        (*cb_data).state_data.as_mut().unwrap(),
+                    )
+                    .into()
+            }
         } else {
             AvionicsCallbackResult::AllowDraw.into()
         }
     } else {
         #[allow(clippy::collapsible_else_if)] // Clarity.
-        if let Some(cb) = (*cb_data).cb_after {
-            (*cb)
-                .do_draw(
-                    &mut x,
-                    device_id,
-                    false,
-                    (*cb_data).state_data.as_mut().unwrap(),
-                )
-                .into()
+        if let Some(cb) = unsafe { (*cb_data).cb_after } {
+            unsafe {
+                (*cb)
+                    .do_draw(
+                        &mut x,
+                        device_id,
+                        false,
+                        (*cb_data).state_data.as_mut().unwrap(),
+                    )
+                    .into()
+            }
         } else {
             AvionicsCallbackResult::Irrelevant.into()
         }
     }
 }
 
-pub struct AvionicsAPI {
+/// Access struct for X-Plane's avionics API.
+pub struct AvionicsApi {
     pub(crate) _phantom: NoSendSync,
 }
 
-impl AvionicsAPI {
+impl AvionicsApi {
     /// Try to make a new [`AvionicsCustomization`].
     /// # Errors
     /// Returns an error if X-Plane doesn't give a handle upon creation.
@@ -336,7 +353,7 @@ mod tests {
                 let thing: *mut i32 = &mut 1;
                 unsafe {
                     let s = *s;
-                    assert_eq!(avionics_draw_callback::<i32>(s.deviceId, 1, s.refcon), 0);
+                    assert_eq!(avionics_draw_callback::<i32>(s.deviceId, 1, s.refcon), 1);
                     assert_eq!(avionics_draw_callback::<i32>(s.deviceId, 0, s.refcon), 0);
                 }
                 thing.cast::<c_void>()
@@ -354,7 +371,7 @@ mod tests {
                 Some(|_: &mut _, _, before: bool, state: &mut _| {
                     *state = 10;
                     assert!(before);
-                    AvionicsCallbackResult::AllowDraw
+                    AvionicsCallbackResult::SuppressDraw
                 }),
                 Some(|_: &mut _, _, before: bool, state: &mut _| {
                     *state = 5;

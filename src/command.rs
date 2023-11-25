@@ -1,11 +1,8 @@
-// Copyright (c) 2023 Julia DeMille
+// Copyright (c) 2023 Julia DeMille.
 //
-// Licensed under the EUPL, Version 1.2
-//
-// You may not use this work except in compliance with the Licence.
-// You should have received a copy of the Licence along with this work. If not, see:
-// <https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12>.
-// See the Licence for the specific language governing permissions and limitations under the Licence.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use core::ffi::{c_int, c_void};
 use std::{
@@ -22,11 +19,12 @@ use xplane_sys::{
 
 use crate::{make_x, NoSendSync, XPAPI};
 
-pub struct CommandAPI {
+/// Struct to access X-Plane's command API.
+pub struct CommandApi {
     pub(crate) _phantom: NoSendSync,
 }
 
-impl CommandAPI {
+impl CommandApi {
     /// Make a new command.
     /// # Errors
     /// Returns an error if a matching command already exists.
@@ -42,7 +40,7 @@ impl CommandAPI {
     /// The command should have already been created by X-Plane or another plugin.
     /// # Errors
     /// Errors if command could not be found.
-    pub fn try_find(name: &str) -> Result<Command, CommandFindError> {
+    pub fn try_find(&mut self, name: &str) -> Result<Command, CommandFindError> {
         Command::try_find(name)
     }
 }
@@ -149,10 +147,13 @@ impl<'a> Drop for CommandHold<'a> {
 #[derive(Snafu, Debug)]
 #[snafu(module)]
 pub enum CommandFindError {
-    /// The provided command name contained a null byte
+    /// The provided command name contained a NUL byte
     #[snafu(display("Null byte in command name."))]
     #[snafu(context(false))]
-    Null { source: NulError },
+    Nul {
+        /// The source of this error.
+        source: NulError,
+    },
 
     /// The Command could not be found
     #[snafu(display("Command not found."))]
@@ -257,14 +258,14 @@ unsafe extern "C" fn command_handler(
     refcon: *mut c_void,
 ) -> c_int {
     let data = refcon.cast::<CommandHandlerData>();
-    let handler = (*data).handler;
+    let handler = unsafe { (*data).handler };
     let mut x = make_x();
     if phase == XPLMCommandPhase::Begin {
-        (*handler).command_begin(&mut x).into()
+        unsafe { (*handler).command_begin(&mut x).into() }
     } else if phase == XPLMCommandPhase::Continue {
-        (*handler).command_continue(&mut x).into()
+        unsafe { (*handler).command_continue(&mut x).into() }
     } else if phase == XPLMCommandPhase::End {
-        (*handler).command_end(&mut x).into()
+        unsafe { (*handler).command_end(&mut x).into() }
     } else {
         1 // If we've somehow achieved this, just let someone else deal with it.
     }
@@ -274,25 +275,37 @@ unsafe extern "C" fn command_handler(
 #[derive(Snafu, Debug)]
 #[snafu(module)]
 pub enum CommandCreateError {
-    /// The provided Command name contained a null byte
-    #[snafu(display("Null byte in Command name."))]
+    #[snafu(display("Null byte in Command name or description."))]
     #[snafu(context(false))]
-    Null { source: NulError },
+    /// The provided Command name contained a NUL byte
+    Nul {
+        /// The source of this error.
+        source: NulError,
+    },
 
-    /// The Command exists already
     #[snafu(display("Command exists already."))]
-    Exists { existing_command: Command },
+    /// The [`Command`] exists already
+    Exists {
+        /// The already existing command.
+        existing_command: Command,
+    },
 }
 
 #[cfg(test)]
 mod tests {
 
-    use std::{cell::RefCell, ffi::CStr, ptr::NonNull, rc::Rc};
+    use std::{
+        cell::RefCell,
+        ffi::CStr,
+        ptr::{self, NonNull},
+        rc::Rc,
+    };
 
     use super::*;
+
     #[test]
     #[allow(clippy::too_many_lines)] // This function has to set up several mocks.
-    fn test_commands() {
+    fn test_command_create_and_handling() {
         struct TestCommandHandler {
             internal_data: i32,
         }
@@ -416,5 +429,64 @@ mod tests {
         {
             let _ = cmd.hold_down();
         }
+    }
+
+    #[test]
+    fn test_command_exists() {
+        let expected_ptr = NonNull::<c_void>::dangling().as_ptr();
+        let find_command_context = xplane_sys::XPLMFindCommand_context();
+        find_command_context
+            .expect()
+            .withf(|cmd_c| {
+                let cmd_c = unsafe { CStr::from_ptr(*cmd_c) };
+                cmd_c == CString::new("xplane_rs/test/command").unwrap().as_c_str()
+                // This contains no NUL bytes, and so should construct a C-string.
+            })
+            .once()
+            .return_once_st(move |_| expected_ptr);
+        let mut x = make_x();
+        let cmd_result = x
+            .command
+            .try_new("xplane_rs/test/command", "Test command.")
+            .unwrap_err();
+        let CommandCreateError::Exists { existing_command } = cmd_result else {
+            unreachable!("This code should be unreachable!")
+        };
+        assert_eq!(existing_command.id, expected_ptr);
+    }
+
+    #[test]
+    fn test_command_found() {
+        let expected_ptr = NonNull::<c_void>::dangling().as_ptr();
+        let find_command_context = xplane_sys::XPLMFindCommand_context();
+        find_command_context
+            .expect()
+            .withf(|cmd_c| {
+                let cmd_c = unsafe { CStr::from_ptr(*cmd_c) };
+                cmd_c == CString::new("xplane_rs/test/command").unwrap().as_c_str()
+                // This contains no NUL bytes, and so should construct a C-string.
+            })
+            .once()
+            .return_once_st(move |_| expected_ptr);
+        let mut x = make_x();
+        let cmd = x.command.try_find("xplane_rs/test/command").unwrap();
+        assert_eq!(cmd.id, expected_ptr);
+    }
+
+    #[test]
+    fn test_command_not_found() {
+        let find_command_context = xplane_sys::XPLMFindCommand_context();
+        find_command_context
+            .expect()
+            .withf(|cmd_c| {
+                let cmd_c = unsafe { CStr::from_ptr(*cmd_c) };
+                cmd_c == CString::new("xplane_rs/test/command").unwrap().as_c_str()
+                // This contains no NUL bytes, and so should construct a C-string.
+            })
+            .once()
+            .return_once_st(|_| ptr::null_mut());
+        let mut x = make_x();
+        let cmd_result = x.command.try_find("xplane_rs/test/command");
+        assert!(matches!(cmd_result, Err(CommandFindError::NotFound)));
     }
 }

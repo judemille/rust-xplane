@@ -1,11 +1,8 @@
-// Copyright (c) 2023 Julia DeMille
+// Copyright (c) 2023 Julia DeMille.
 //
-// Licensed under the EUPL, Version 1.2
-//
-// You may not use this work except in compliance with the Licence.
-// You should have received a copy of the Licence along with this work. If not, see:
-// <https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12>.
-// See the Licence for the specific language governing permissions and limitations under the Licence.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use core::ffi::c_void;
 use std::{
@@ -258,7 +255,7 @@ impl<A> DataRead<bool> for DataRef<bool, A> {
 impl DataReadWrite<bool> for DataRef<bool, ReadWrite> {
     fn set(&mut self, value: bool) {
         let int_value = i32::from(value);
-        unsafe { XPLMSetDatai(self.id, int_value) };
+        unsafe { XPLMSetDatai(self.id, int_value); }
     }
 }
 
@@ -278,7 +275,10 @@ pub enum FindError {
     /// The provided DataRef name contained a null byte
     #[snafu(display("Null byte in DataRef name"))]
     #[snafu(context(false))]
-    Null { source: NulError },
+    Null {
+        /// The source error.
+        source: NulError,
+    },
 
     /// The DataRef could not be found
     #[snafu(display("DataRef not found"))]

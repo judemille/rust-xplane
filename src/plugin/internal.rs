@@ -1,11 +1,8 @@
-// Copyright (c) 2023 Julia DeMille
+// Copyright (c) 2023 Julia DeMille.
 //
-// Licensed under the EUPL, Version 1.2
-//
-// You may not use this work except in compliance with the Licence.
-// You should have received a copy of the Licence along with this work. If not, see:
-// <https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12>.
-// See the Licence for the specific language governing permissions and limitations under the Licence.
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use core::ffi::{c_char, c_int, c_void};
 use std::{panic, panic::AssertUnwindSafe, ptr};
@@ -55,9 +52,11 @@ where
         match P::start(&mut x) {
             Ok(plugin) => {
                 let info = plugin.info();
-                copy_to_c_buffer(info.name, name);
-                copy_to_c_buffer(info.signature, signature);
-                copy_to_c_buffer(info.description, description);
+                unsafe {
+                    copy_to_c_buffer(info.name, name);
+                    copy_to_c_buffer(info.signature, signature);
+                    copy_to_c_buffer(info.description, description);
+                }
 
                 let plugin_box = Box::new(plugin);
                 data.plugin = Box::into_raw(plugin_box);
@@ -94,7 +93,7 @@ where
         .unwrap(); // This string should be valid.
     } else {
         let unwind = panic::catch_unwind(AssertUnwindSafe(|| {
-            let plugin = Box::from_raw(data.plugin);
+            let plugin = unsafe { Box::from_raw(data.plugin) };
             data.plugin = ptr::null_mut();
             drop(plugin);
         }));
@@ -117,14 +116,15 @@ where
         0
     } else {
         let mut x = make_x();
-        let unwind =
-            panic::catch_unwind(AssertUnwindSafe(|| match (*data.plugin).enable(&mut x) {
+        let unwind = panic::catch_unwind(AssertUnwindSafe(|| {
+            match unsafe { (*data.plugin).enable(&mut x) } {
                 Ok(()) => 1,
                 Err(e) => {
                     debugln!(x, "Plugin failed to enable: {}", e).unwrap(); // This string should be valid.
                     0
                 }
-            }));
+            }
+        }));
         unwind.unwrap_or_else(|_| {
             eprintln!("Panic in XPluginEnable");
             data.panicked = true;
@@ -142,7 +142,7 @@ where
 {
     if !data.panicked {
         let mut x = make_x();
-        let unwind = panic::catch_unwind(AssertUnwindSafe(|| {
+        let unwind = panic::catch_unwind(AssertUnwindSafe(|| unsafe {
             (*data.plugin).disable(&mut x);
         }));
         if unwind.is_err() {
@@ -162,5 +162,7 @@ pub unsafe fn xplugin_receive_message<P>(
     P: Plugin,
 {
     let mut x = make_x();
-    (*data.plugin).receive_message(&mut x, from, message.into(), param);
+    unsafe {
+        (*data.plugin).receive_message(&mut x, from, message.into(), param);
+    }
 }
