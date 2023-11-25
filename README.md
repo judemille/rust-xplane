@@ -103,7 +103,7 @@ Unless you explicitly state otherwise, any contribution intentionally submitted 
 be licensed as above, without any additional terms or conditions.
 
 All commits must be signed-off (`git commit -s`). This is a declaration that you have read and agree to the terms in the
-[Developer Certificate of Origin](https://developercertificate.org/) (DCO). This can be considered to a CLA, but is different in that
+[Developer Certificate of Origin](https://developercertificate.org/) (DCO). This can be compared to a CLA, but is different in that
 your copyright remains with you. All you are doing is attesting that you can contribute code under the repository's license.
 A copy of the DCO text is kept in this repository at DCO.txt.
 
