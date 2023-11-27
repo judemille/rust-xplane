@@ -1,7 +1,7 @@
 [package]
 authors = ["Julia DeMille <me@jdemille.com>", "Sam Crow <samcrow@uw.edu>"]
 name = "xplane"
-version = "2.0.0"
+version = "0.1.0-alpha.1"
 license = "MPL-2.0"
 repository = "https://github.com/judemille/rust-xplane"
 keywords = ["X-Plane", "plugin"]

@@ -21,7 +21,6 @@ macro_rules! xplane_plugin {
         static mut PLUGIN: $crate::plugin::internal::PluginData<$plugin_type> =
             $crate::plugin::internal::PluginData {
                 plugin: 0 as *mut _,
-                panicked: false,
             };
 
         #[allow(non_snake_case)]

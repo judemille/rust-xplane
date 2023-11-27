@@ -107,7 +107,10 @@ All commits must be signed-off (`git commit -s`). This is a declaration that you
 your copyright remains with you. All you are doing is attesting that you can contribute code under the repository's license.
 A copy of the DCO text is kept in this repository at DCO.txt.
 
+You may sign the DCO with your preferred name, so long as it is relatively consistent, so we can keep track of who's who.
+
 ## Minimum Supported Rust Version
 The MSRV of this crate is always the latest stable compiler version at the time of a given commit.
 Maybe it'll work on an older version. Maybe it won't. No guarantees.
 
+This will probably change once a stable release goes out.
