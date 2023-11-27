@@ -20,8 +20,6 @@ use xplane_sys::{
     XPLMSetDatad, XPLMSetDataf, XPLMSetDatai, XPLMSetDatavf, XPLMSetDatavi,
 };
 
-use crate::NoSendSync;
-
 use super::{ArrayRead, ArrayReadWrite, DataRead, DataReadWrite, DataType, ReadOnly, ReadWrite};
 
 /// A dataref created by X-Plane or another plugin
@@ -31,12 +29,9 @@ use super::{ArrayRead, ArrayReadWrite, DataRead, DataReadWrite, DataType, ReadOn
 /// A is the access level (`ReadOnly` or `ReadWrite`)
 pub struct DataRef<T: ?Sized, A = ReadOnly> {
     /// The dataref handle
-    id: XPLMDataRef,
-    /// Type phantom data
-    _type_phantom: PhantomData<T>,
-    /// Data access phantom data
-    _access_phantom: PhantomData<A>,
-    _no_send_sync: NoSendSync,
+    pub(super) id: XPLMDataRef,
+    /// Type and data access phantom data
+    pub(super) _phantom: PhantomData<(*mut (), A, T)>,
 }
 
 impl<T: DataType + ?Sized> DataRef<T, ReadOnly> {
@@ -51,14 +46,12 @@ impl<T: DataType + ?Sized> DataRef<T, ReadOnly> {
         }
 
         let actual_type = unsafe { XPLMGetDataRefTypes(dataref) };
-        if actual_type.field_true(expected_type) {
+        if actual_type & expected_type == expected_type {
             Err(FindError::WrongType)
         } else {
             Ok(DataRef {
                 id: dataref,
-                _type_phantom: PhantomData,
-                _access_phantom: PhantomData,
-                _no_send_sync: PhantomData,
+                _phantom: PhantomData,
             })
         }
     }
@@ -71,9 +64,7 @@ impl<T: DataType + ?Sized> DataRef<T, ReadOnly> {
         if writable {
             Ok(DataRef {
                 id: self.id,
-                _type_phantom: PhantomData,
-                _access_phantom: PhantomData,
-                _no_send_sync: PhantomData,
+                _phantom: PhantomData,
             })
         } else {
             Err(self)

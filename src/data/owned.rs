@@ -16,13 +16,11 @@ use std::{
 use snafu::prelude::*;
 
 use xplane_sys::{
-    XPLMDataRef, XPLMDataTypeID, XPLMFindDataRef, XPLMGetDatab_f, XPLMGetDatad_f, XPLMGetDataf_f,
+    XPLMDataRef, XPLMFindDataRef, XPLMGetDatab_f, XPLMGetDatad_f, XPLMGetDataf_f,
     XPLMGetDatai_f, XPLMGetDatavf_f, XPLMGetDatavi_f, XPLMRegisterDataAccessor, XPLMSetDatab_f,
     XPLMSetDatad_f, XPLMSetDataf_f, XPLMSetDatai_f, XPLMSetDatavf_f, XPLMSetDatavi_f,
     XPLMUnregisterDataAccessor,
 };
-
-use crate::NoSendSync;
 
 use super::{Access, ArrayRead, ArrayReadWrite, DataRead, DataReadWrite, DataType, ReadOnly};
 
@@ -38,9 +36,8 @@ pub struct OwnedData<T: DataType + ?Sized, A = ReadOnly> {
     /// This comes from a Box, so that it will have a constant memory location that is
     /// provided as a refcon to the callbacks.
     value: *mut T::Storage,
-    /// Data access phantom data
-    _access_phantom: PhantomData<A>,
-    _no_send_sync: NoSendSync,
+    /// Data access and type phantom data.
+    _phantom: PhantomData<(A, T)>,
 }
 
 impl<T: DataType + ?Sized, A: Access> OwnedData<T, A> {
@@ -72,8 +69,8 @@ impl<T: DataType + ?Sized, A: Access> OwnedData<T, A> {
                 Self::float_array_write(),
                 Self::byte_array_read(),
                 Self::byte_array_write(),
-                value.cast::<std::ffi::c_void>(),
-                value.cast::<std::ffi::c_void>(),
+                value.cast(),
+                value.cast(),
             )
         };
 
@@ -81,8 +78,7 @@ impl<T: DataType + ?Sized, A: Access> OwnedData<T, A> {
         Ok(OwnedData {
             id,
             value,
-            _access_phantom: PhantomData,
-            _no_send_sync: PhantomData,
+            _phantom: PhantomData,
         })
     }
 
@@ -91,84 +87,84 @@ impl<T: DataType + ?Sized, A: Access> OwnedData<T, A> {
         i32::from(A::writeable())
     }
     fn int_read() -> XPLMGetDatai_f {
-        if T::sim_type().field_true(XPLMDataTypeID::Int) {
+        if T::sim_type().int() {
             Some(read_single::<i32>)
         } else {
             None
         }
     }
     fn int_write() -> XPLMSetDatai_f {
-        if T::sim_type().field_true(XPLMDataTypeID::Int) && A::writeable() {
+        if T::sim_type().int() && A::writeable() {
             Some(write_single::<i32>)
         } else {
             None
         }
     }
     fn float_read() -> XPLMGetDataf_f {
-        if T::sim_type().field_true(XPLMDataTypeID::Float) {
+        if T::sim_type().float() {
             Some(read_single::<f32>)
         } else {
             None
         }
     }
     fn float_write() -> XPLMSetDataf_f {
-        if T::sim_type().field_true(XPLMDataTypeID::Float) && A::writeable() {
+        if T::sim_type().float() && A::writeable() {
             Some(write_single::<f32>)
         } else {
             None
         }
     }
     fn double_read() -> XPLMGetDatad_f {
-        if T::sim_type().field_true(XPLMDataTypeID::Double) {
+        if T::sim_type().double() {
             Some(read_single::<f64>)
         } else {
             None
         }
     }
     fn double_write() -> XPLMSetDatad_f {
-        if T::sim_type().field_true(XPLMDataTypeID::Double) && A::writeable() {
+        if T::sim_type().double() && A::writeable() {
             Some(write_single::<f64>)
         } else {
             None
         }
     }
     fn int_array_read() -> XPLMGetDatavi_f {
-        if T::sim_type().field_true(XPLMDataTypeID::IntArray) {
+        if T::sim_type().int_array() {
             Some(array_read::<i32>)
         } else {
             None
         }
     }
     fn int_array_write() -> XPLMSetDatavi_f {
-        if T::sim_type().field_true(XPLMDataTypeID::IntArray) && A::writeable() {
+        if T::sim_type().int_array() && A::writeable() {
             Some(array_write::<i32>)
         } else {
             None
         }
     }
     fn float_array_read() -> XPLMGetDatavf_f {
-        if T::sim_type().field_true(XPLMDataTypeID::FloatArray) {
+        if T::sim_type().float_array() {
             Some(array_read::<f32>)
         } else {
             None
         }
     }
     fn float_array_write() -> XPLMSetDatavf_f {
-        if T::sim_type().field_true(XPLMDataTypeID::FloatArray) && A::writeable() {
+        if T::sim_type().float_array() && A::writeable() {
             Some(array_write::<f32>)
         } else {
             None
         }
     }
     fn byte_array_read() -> XPLMGetDatab_f {
-        if T::sim_type().field_true(XPLMDataTypeID::Data) {
+        if T::sim_type().data() {
             Some(byte_array_read)
         } else {
             None
         }
     }
     fn byte_array_write() -> XPLMSetDatab_f {
-        if T::sim_type().field_true(XPLMDataTypeID::Data) && A::writeable() {
+        if T::sim_type().data() && A::writeable() {
             Some(byte_array_write)
         } else {
             None

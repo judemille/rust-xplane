@@ -11,7 +11,11 @@ use std::{
 
 use xplane_sys::XPLMDataTypeID;
 
-use crate::{ffi::StringBuffer, NoSendSync};
+use crate::{
+    data::shared::{SharedData, SharedDataError, SharedDataHandler},
+    ffi::StringBuffer,
+    NoSendSync,
+};
 
 use self::{
     borrowed::{DataRef, FindError},
@@ -22,6 +26,8 @@ use self::{
 pub mod borrowed;
 /// Datarefs created by this plugin
 pub mod owned;
+/// Datarefs shared between plugins.
+pub mod shared;
 
 /// Marks a dataref as readable
 pub enum ReadOnly {}
@@ -179,18 +185,7 @@ pub trait ArrayType: DataType {
 }
 
 macro_rules! impl_type {
-    ($native_type:ty as $sim_type:path) => {
-        impl DataType for $native_type {
-            type Storage = Self;
-            fn sim_type() -> XPLMDataTypeID {
-                $sim_type
-            }
-            fn to_storage(&self) -> Self::Storage {
-                self.clone()
-            }
-        }
-    };
-    ([$native_type:ty]: array as $sim_type:path) => {
+    ([$native_type:ty] as $sim_type:path) => {
         impl DataType for [$native_type] {
             type Storage = Vec<$native_type>;
             fn sim_type() -> XPLMDataTypeID {
@@ -204,6 +199,17 @@ macro_rules! impl_type {
             type Element = $native_type;
         }
     };
+    ($native_type:ty as $sim_type:path) => {
+        impl DataType for $native_type {
+            type Storage = Self;
+            fn sim_type() -> XPLMDataTypeID {
+                $sim_type
+            }
+            fn to_storage(&self) -> Self::Storage {
+                self.clone()
+            }
+        }
+    };
 }
 
 impl_type!(bool as XPLMDataTypeID::Int);
@@ -215,11 +221,11 @@ impl_type!(u32 as XPLMDataTypeID::Int);
 impl_type!(i32 as XPLMDataTypeID::Int);
 impl_type!(f32 as XPLMDataTypeID::Float);
 impl_type!(f64 as XPLMDataTypeID::Double);
-impl_type!([i32]: array as XPLMDataTypeID::IntArray);
-impl_type!([u32]: array as XPLMDataTypeID::IntArray);
-impl_type!([f32]: array as XPLMDataTypeID::FloatArray);
-impl_type!([u8]: array as XPLMDataTypeID::Data);
-impl_type!([i8]: array as XPLMDataTypeID::Data);
+impl_type!([i32] as XPLMDataTypeID::IntArray);
+impl_type!([u32] as XPLMDataTypeID::IntArray);
+impl_type!([f32] as XPLMDataTypeID::FloatArray);
+impl_type!([u8] as XPLMDataTypeID::Data);
+impl_type!([i8] as XPLMDataTypeID::Data);
 
 /// Access struct for X-Plane's data APIs.
 pub struct DataApi {
@@ -227,7 +233,7 @@ pub struct DataApi {
 }
 
 impl DataApi {
-    /// Finds a readable dataref by its name
+    /// Finds a readable dataref by its name.
     /// # Errors
     /// Returns an error if the dataref does not exist or has the wrong type
     pub fn find<T: DataType + ?Sized, S: AsRef<str>>(
@@ -237,7 +243,7 @@ impl DataApi {
         DataRef::find(name)
     }
 
-    /// Creates a new dataref with the provided name containing the default value of T
+    /// Creates a new dataref with the provided name containing the default value of `T`.
     /// # Errors
     /// Errors if there is a NUL character in the dataref name, or if a dataref with that name already exists.
     pub fn new_owned<T: DataType + Default + ?Sized, A: Access, S: AsRef<str>>(
@@ -247,7 +253,7 @@ impl DataApi {
         OwnedData::new_with_value(name, &T::default())
     }
 
-    /// Creates a new dataref with the provided name and value
+    /// Creates a new dataref with the provided name and value.
     /// # Errors
     /// Errors if there is a NUL character in the dataref name, or if a dataref with that name already exists.
     /// # Panics
@@ -258,5 +264,18 @@ impl DataApi {
         value: &T,
     ) -> Result<OwnedData<T, A>, CreateError> {
         OwnedData::new_with_value(name, value)
+    }
+
+    /// Creates a new [`SharedData<T>`]. 
+    /// The function in your handler will be called every time the dataref's value changes.
+    /// # Errors
+    /// Returns an error if the dataref name contains a NUL byte, or if the type does not
+    /// match the existing dataref of that name.
+    pub fn new_shared<S: Into<Vec<u8>>, T: DataType + ?Sized + 'static>(
+        &mut self,
+        name: S,
+        handler: impl SharedDataHandler<T>,
+    ) -> Result<SharedData<T>, SharedDataError> {
+        SharedData::new(name, handler)
     }
 }

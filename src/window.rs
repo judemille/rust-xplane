@@ -501,16 +501,13 @@ impl KeyEvent {
             b'\t' | b' '..=b'~' => Some(key as u8 as char),
             _ => None,
         };
-        let action = if flags.field_true(XPLMKeyFlags::Down) {
+        let action = if flags.down() {
             KeyAction::Press
-        } else if flags.field_true(XPLMKeyFlags::Up) {
+        } else if flags.up() {
             KeyAction::Release
         } else {
             return Err(KeyEventError::InvalidFlags { flags });
         };
-        let control_pressed = flags.field_true(XPLMKeyFlags::Control);
-        let shift_pressed = flags.field_true(XPLMKeyFlags::Shift);
-        let alt_pressed = flags.field_true(XPLMKeyFlags::OptionAlt);
         let Ok(key) = Key::try_from_primitive(virtual_key as u32) else {
             return Err(KeyEventError::InvalidKey { key: virtual_key });
         };
@@ -519,9 +516,9 @@ impl KeyEvent {
             basic_char,
             key,
             action,
-            control_pressed,
-            alt_pressed,
-            shift_pressed,
+            control_pressed: flags.ctrl(),
+            alt_pressed: flags.option_alt(),
+            shift_pressed: flags.shift(),
         })
     }
     /// Returns the character corresponding to the key associated with this event, if one exists
@@ -562,7 +559,7 @@ impl KeyEvent {
 /// Key event creation error
 #[derive(Snafu, Debug)]
 enum KeyEventError {
-    #[snafu(display("Unexpected key flags {flags:b}"))]
+    #[snafu(display("Unexpected key flags {flags:?}"))]
     InvalidFlags { flags: xplane_sys::XPLMKeyFlags },
 
     #[snafu(display("Invalid or unsupported key with code: 0x{key:x}"))]
