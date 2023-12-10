@@ -14,7 +14,7 @@ use xplane_sys::{
     XPLMUnregisterAvionicsCallbacks,
 };
 
-use crate::{make_x, NoSendSync, XPAPI};
+use crate::NoSendSync;
 
 #[non_exhaustive]
 #[allow(missing_docs)]
@@ -128,14 +128,12 @@ pub enum AvionicsCallbackResult {
     AllowDraw,
     /// Suppress further drawing of this device.
     SuppressDraw,
-    /// You're in the post-draw phase. It doesn't matter.
-    Irrelevant,
 }
 
 impl From<AvionicsCallbackResult> for c_int {
     fn from(val: AvionicsCallbackResult) -> Self {
         match val {
-            AvionicsCallbackResult::AllowDraw | AvionicsCallbackResult::Irrelevant => 0,
+            AvionicsCallbackResult::AllowDraw => 0,
             AvionicsCallbackResult::SuppressDraw => 1,
         }
     }
@@ -143,31 +141,21 @@ impl From<AvionicsCallbackResult> for c_int {
 
 /// Handlers for avionics drawing.
 /// Store some data in here if you like.
-pub trait AvionicsDrawCallback<T: 'static>: 'static {
-    /// The actual callback.
-    fn do_draw(
+pub trait AvionicsDrawer: 'static {
+    /// Draw the avionics before X-Plane.
+    /// All OpenGL calls, and XPLM calls related to OpenGL must
+    /// be performed unsafely. Remain aware of the restrictions
+    /// on OpenGL use.
+    fn draw_before_xp(
         &mut self,
-        x: &mut XPAPI,
-        device_id: XPLMDeviceID,
-        is_before: bool,
-        state_data: &mut T,
+        device_id: Result<DeviceID, DeviceUnmatchedError>,
     ) -> AvionicsCallbackResult;
-}
 
-impl<F, T> AvionicsDrawCallback<T> for F
-where
-    F: 'static + FnMut(&mut XPAPI, XPLMDeviceID, bool, &mut T) -> AvionicsCallbackResult,
-    T: 'static,
-{
-    fn do_draw(
-        &mut self,
-        x: &mut XPAPI,
-        device_id: XPLMDeviceID,
-        is_before: bool,
-        state_data: &mut T,
-    ) -> AvionicsCallbackResult {
-        self(x, device_id, is_before, state_data)
-    }
+    /// Draw the avionics after X-Plane.
+    /// All OpenGL calls, and XPLM calls related to OpenGL must
+    /// be performed unsafely. Remain aware of the restrictions
+    /// on OpenGL use.
+    fn draw_after_xp(&mut self, device_id: Result<DeviceID, DeviceUnmatchedError>);
 }
 
 #[derive(Debug, Snafu)]
@@ -177,36 +165,28 @@ pub struct AvionicsCustomizationError;
 
 #[derive(Debug)]
 /// An avionics customization.
-pub struct AvionicsCustomization<T: 'static> {
-    data: *mut AvionicsCustomizationData<T>,
+pub struct AvionicsCustomization {
+    data: *mut AvionicsCustomizationData,
     _phantom: NoSendSync,
 }
 
-impl<T: 'static> AvionicsCustomization<T> {
+impl AvionicsCustomization {
     fn try_new(
         device_id: DeviceID,
-        cb_before: Option<impl AvionicsDrawCallback<T>>,
-        cb_after: Option<impl AvionicsDrawCallback<T>>,
-        initial_state: T,
+        drawer: impl AvionicsDrawer,
     ) -> Result<Self, AvionicsCustomizationError> {
-        let cb_before =
-            cb_before.map(|cb| -> *mut dyn AvionicsDrawCallback<T> { Box::into_raw(Box::new(cb)) });
-        let cb_after =
-            cb_after.map(|cb| -> *mut dyn AvionicsDrawCallback<T> { Box::into_raw(Box::new(cb)) });
-        let state_data = Box::into_raw(Box::new(initial_state));
+        let drawer = Box::into_raw(Box::new(drawer));
         let data = Box::into_raw(Box::new(AvionicsCustomizationData {
             handle: None,
-            cb_before,
-            cb_after,
-            state_data,
+            drawer,
             _phantom: PhantomData,
         }));
         #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
         let mut customize_avionics_struct = XPLMCustomizeAvionics_t {
             structSize: mem::size_of::<XPLMCustomizeAvionics_t>() as i32,
             deviceId: device_id.into(),
-            drawCallbackBefore: cb_before.and(Some(avionics_draw_callback::<T>)),
-            drawCallbackAfter: cb_after.and(Some(avionics_draw_callback::<T>)),
+            drawCallbackBefore: Some(avionics_draw_callback),
+            drawCallbackAfter: Some(avionics_draw_callback),
             refcon: data.cast::<c_void>(),
         };
         let handle = unsafe { XPLMRegisterAvionicsCallbacksEx(&mut customize_avionics_struct) };
@@ -225,89 +205,55 @@ impl<T: 'static> AvionicsCustomization<T> {
     }
 }
 
-impl<T: 'static> Drop for AvionicsCustomization<T> {
+impl Drop for AvionicsCustomization {
     fn drop(&mut self) {
         let _ = unsafe { Box::from_raw(self.data) };
     }
 }
 
-struct AvionicsCustomizationData<T: 'static> {
+struct AvionicsCustomizationData {
     handle: Option<XPLMAvionicsID>,
-    cb_before: Option<*mut dyn AvionicsDrawCallback<T>>,
-    cb_after: Option<*mut dyn AvionicsDrawCallback<T>>,
-    state_data: *mut T,
+    drawer: *mut dyn AvionicsDrawer,
     _phantom: NoSendSync,
 }
 
 #[allow(clippy::missing_fields_in_debug)]
-impl<T: 'static> fmt::Debug for AvionicsCustomizationData<T> {
+impl fmt::Debug for AvionicsCustomizationData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("AvionicsCustomizationData")
             .field("handle", &self.handle)
             .field("cb_before", &"[before-draw callback]")
             .field("cb_after", &"[after-draw callback]")
-            .field("state_data", &"[callback state]")
             .finish()
     }
 }
 
-impl<T: 'static> AvionicsCustomizationData<T> {}
+impl AvionicsCustomizationData {}
 
-impl<T: 'static> Drop for AvionicsCustomizationData<T> {
+impl Drop for AvionicsCustomizationData {
     fn drop(&mut self) {
         unsafe {
             if let Some(handle) = self.handle {
                 XPLMUnregisterAvionicsCallbacks(handle);
             }
-            if let Some(cb) = self.cb_before {
-                let _ = Box::from_raw(cb);
-            }
-            if let Some(cb) = self.cb_after {
-                let _ = Box::from_raw(cb);
-            }
-            let _ = Box::from_raw(self.state_data);
+            let _ = Box::from_raw(self.drawer);
         }
     }
 }
 
-unsafe extern "C" fn avionics_draw_callback<T: 'static>(
+unsafe extern "C" fn avionics_draw_callback(
     device_id: XPLMDeviceID,
     is_before: c_int,
     refcon: *mut c_void,
 ) -> c_int {
-    let cb_data = refcon.cast::<AvionicsCustomizationData<T>>();
-    let mut x = make_x();
+    let cb_data = refcon.cast::<AvionicsCustomizationData>();
+    let drawer = unsafe { cb_data.as_mut().unwrap().drawer.as_mut().unwrap() };
+    let device_id = DeviceID::try_from(device_id);
     if is_before == 1 {
-        if let Some(cb) = unsafe { (*cb_data).cb_before } {
-            unsafe {
-                (*cb)
-                    .do_draw(
-                        &mut x,
-                        device_id,
-                        true,
-                        (*cb_data).state_data.as_mut().unwrap(),
-                    )
-                    .into()
-            }
-        } else {
-            AvionicsCallbackResult::AllowDraw.into()
-        }
+        drawer.draw_before_xp(device_id).into()
     } else {
-        #[allow(clippy::collapsible_else_if)] // Clarity.
-        if let Some(cb) = unsafe { (*cb_data).cb_after } {
-            unsafe {
-                (*cb)
-                    .do_draw(
-                        &mut x,
-                        device_id,
-                        false,
-                        (*cb_data).state_data.as_mut().unwrap(),
-                    )
-                    .into()
-            }
-        } else {
-            AvionicsCallbackResult::Irrelevant.into()
-        }
+        drawer.draw_after_xp(device_id);
+        0
     }
 }
 
@@ -321,23 +267,46 @@ impl AvionicsApi {
     /// # Errors
     /// Returns an error if X-Plane doesn't give a handle upon creation.
     /// There is no way for this crate to know *why* that happened, only that it did.
-    pub fn try_new_customization<T: 'static>(
+    pub fn try_new_customization(
         &mut self,
         device_id: DeviceID,
-        cb_before: Option<impl AvionicsDrawCallback<T>>,
-        cb_after: Option<impl AvionicsDrawCallback<T>>,
-        initial_state: T,
-    ) -> Result<AvionicsCustomization<T>, AvionicsCustomizationError> {
-        AvionicsCustomization::try_new(device_id, cb_before, cb_after, initial_state)
+        drawer: impl AvionicsDrawer,
+    ) -> Result<AvionicsCustomization, AvionicsCustomizationError> {
+        AvionicsCustomization::try_new(device_id, drawer)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::make_x;
     use mockall::*;
     #[test]
     fn test_avionics_customization() {
+        struct Drawer {
+            state: u8,
+        }
+        impl AvionicsDrawer for Drawer {
+            fn draw_before_xp(
+                &mut self,
+                device_id: Result<DeviceID, DeviceUnmatchedError>,
+            ) -> AvionicsCallbackResult {
+                assert!(matches!(
+                    device_id,
+                    Ok(DeviceID::PrimusMfd(ThreeSideDevice::Center))
+                ));
+                self.state = 10;
+                AvionicsCallbackResult::SuppressDraw
+            }
+
+            fn draw_after_xp(&mut self, device_id: Result<DeviceID, DeviceUnmatchedError>) {
+                assert!(matches!(
+                    device_id,
+                    Ok(DeviceID::PrimusMfd(ThreeSideDevice::Center))
+                ));
+                self.state = 5;
+            }
+        }
         let mut x = make_x();
         let mut seq = Sequence::new();
         let customize_avionics_ctx = xplane_sys::XPLMRegisterAvionicsCallbacksEx_context();
@@ -353,8 +322,8 @@ mod tests {
                 let thing: *mut i32 = &mut 1;
                 unsafe {
                     let s = *s;
-                    assert_eq!(avionics_draw_callback::<i32>(s.deviceId, 1, s.refcon), 1);
-                    assert_eq!(avionics_draw_callback::<i32>(s.deviceId, 0, s.refcon), 0);
+                    assert_eq!(avionics_draw_callback(s.deviceId, 1, s.refcon), 1);
+                    assert_eq!(avionics_draw_callback(s.deviceId, 0, s.refcon), 0);
                 }
                 thing.cast::<c_void>()
             }); // Pointer meaningless.
@@ -368,17 +337,7 @@ mod tests {
         x.avionics
             .try_new_customization(
                 DeviceID::PrimusMfd(ThreeSideDevice::Center),
-                Some(|_: &mut _, _, before: bool, state: &mut _| {
-                    *state = 10;
-                    assert!(before);
-                    AvionicsCallbackResult::SuppressDraw
-                }),
-                Some(|_: &mut _, _, before: bool, state: &mut _| {
-                    *state = 5;
-                    assert!(!before);
-                    AvionicsCallbackResult::Irrelevant
-                }),
-                1,
+                Drawer { state: 0 },
             )
             .expect("Could not customize avionics!");
     }

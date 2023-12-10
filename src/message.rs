@@ -35,7 +35,7 @@ pub enum MessageId {
     /// 
     /// The message parameter is the ID of the affected plane.
     /// `0` indicates the user's plane.
-    /// Interpret the value of the message parameter as a [`c_int`], not as a pointer.
+    /// Interpret the value of the message parameter as a [`c_int`](std::ffi::c_int), not as a pointer.
     PlaneLoaded = XPLM_MSG_PLANE_LOADED,
     /// An airport has been loaded.
     /// The message parameter is meaningless.
@@ -44,14 +44,14 @@ pub enum MessageId {
     /// The message parameter is meaningless. Use datarefs to determine what files were loaded.
     SceneryLoaded = XPLM_MSG_SCENERY_LOADED,
     /// The user has adjusted the number of X-Plane aircraft models.
-    /// Use [`XPLMCountPlanes`] to find out how many planes are now available.
+    /// Use [`XPLMCountPlanes`](xplane_sys::XPLMCountPlanes) to find out how many planes are now available.
     /// The message parameter is meaningless.
     AirplaneCountChanged = XPLM_MSG_AIRPLANE_COUNT_CHANGED,
     /// A plane has been unloaded.
     /// 
     /// The message parameter is the ID of the affected plane.
     /// `0` indicates the user's plane.
-    /// Interpret the value of the message parameter as a [`c_int`], not as a pointer.
+    /// Interpret the value of the message parameter as a [`c_int`](std::ffi::c_int), not as a pointer.
     PlaneUnloaded = XPLM_MSG_PLANE_UNLOADED,
     /// X-Plane is going to write its preferences file.
     /// You should write your own preferences file, and if applicable, modify any datarefs that might
@@ -63,7 +63,7 @@ pub enum MessageId {
     /// 
     /// The message parameter is the ID of the affected plane.
     /// `0` indicates the user's plane.
-    /// Interpret the value of the message parameter as a [`c_int`], not as a pointer.
+    /// Interpret the value of the message parameter as a [`c_int`](std::ffi::c_int), not as a pointer.
     LiveryLoaded = XPLM_MSG_LIVERY_LOADED,
     #[cfg(feature = "XPLM301")]
     /// Sent just before X-Plane enters virtual-reality mode.
@@ -86,18 +86,19 @@ pub enum MessageId {
     ReleasePlanes = XPLM_MSG_RELEASE_PLANES,
     #[cfg(feature = "XPLM400")]
     /// Sent after FMOD sound banks are loaded.
-    /// The parameter is the [`XPLMBankID`] that has been loaded.
-    /// Untested, but the parameter is probably a [`c_int`], not a pointer.
+    /// The parameter is the [`XPLMBankID`](xplane_sys::XPLMBankID) that has been loaded.
+    /// Untested, but the parameter is probably a [`c_int`](std::ffi::c_int), not a pointer.
     FmodBankLoaded = XPLM_MSG_FMOD_BANK_LOADED,
     #[cfg(feature = "XPLM400")]
     /// Sent before FMOD sound banks are unloaded.
     /// Any associated resources should be cleaned up.
-    /// The parameter is the [`XPLMBankID`] that is being unloaded.
-    /// Untested, but the parameter is probably a [`c_int`], not a pointer.
+    /// The parameter is the [`XPLMBankID`](xplane_sys::XPLMBankID) that is being unloaded.
+    /// Untested, but the parameter is probably a [`c_int`](std::ffi::c_int), not a pointer.
     FmodBankUnloading = XPLM_MSG_FMOD_BANK_UNLOADING,
     #[cfg(feature = "XPLM400")]
     /// Sent per-frame (at-most) if/when datarefs are added.
     /// Includes the new dataref total count so your plugin can cache the count, and only query about the newly added ones.
+    /// Untested, but the parameter is probably a [`c_int`](std::ffi::c_int), not a pointer.
     /// 
     /// This message is only sent to plugins that enable the `XPLM_WANTS_DATAREF_NOTIFICATIONS` feature.
     DatarefsAdded = XPLM_MSG_DATAREFS_ADDED,

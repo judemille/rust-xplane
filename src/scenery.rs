@@ -14,7 +14,7 @@ use snafu::prelude::*;
 use xplane_sys::{
     XPLMCreateInstance, XPLMCreateProbe, XPLMDestroyProbe, XPLMLoadObject, XPLMLoadObjectAsync,
     XPLMLookupObjects, XPLMObjectRef, XPLMProbeInfo_t, XPLMProbeRef, XPLMProbeResult,
-    XPLMProbeTerrainXYZ, XPLMProbeType, XPLMUnloadObject,
+    XPLMProbeTerrainXYZ, XPLMProbeType, XPLMUnloadObject, XPLMReloadScenery
 };
 
 #[cfg(feature = "XPLM300")]
@@ -277,6 +277,16 @@ impl SceneryApi {
             );
         }
         Ok(())
+    }
+
+    /// Reload the current set of scenery.
+    ///
+    /// This will only cause X-Plane to re-read already loaded scenery, not load new scenery.
+    /// Equivalent to pressing "reload scenery" in the developer menu.
+    pub fn reload_scenery(&mut self) {
+        unsafe {
+            XPLMReloadScenery();
+        }
     }
 }
 

@@ -84,7 +84,6 @@ pub trait ArrayRead<T: ArrayType + ?Sized> {
     fn len(&self) -> usize;
 
     /// Returns whether the data array is empty.
-    /// /// Returns whether the data array is empty.
     fn is_empty(&self) -> bool {
         self.len() == 0
     }

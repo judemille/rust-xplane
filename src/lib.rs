@@ -41,9 +41,10 @@ use std::{
     marker::PhantomData,
     ptr,
 };
+use tailcall::tailcall;
 use xplane_sys::{
     XPLMDebugString, XPLMGetLanguage, XPLMGetVersions, XPLMGetVirtualKeyDescription,
-    XPLMHostApplicationID, XPLMLanguageCode, XPLMReloadScenery, XPLMSpeakString,
+    XPLMHostApplicationID, XPLMLanguageCode, XPLMSpeakString,
 };
 
 /// FFI utilities
@@ -70,7 +71,6 @@ pub mod feature;
 
 /// Flight loop callbacks
 pub mod flight_loop;
-/// 2D user interface geometry
 pub mod geometry;
 /// User interface menus
 pub mod menu;
@@ -100,6 +100,14 @@ pub mod weather;
 pub mod window;
 
 type NoSendSync = PhantomData<*mut ()>;
+
+#[tailcall]
+fn xp_major_ver(input: i32, full_version: i32) -> (i32, i32) {
+    if !(-99..=99).contains(&input) {
+        xp_major_ver(input, full_version)
+    }
+    (input, full_version)
+}
 
 /// Access struct for all APIs in this crate. Intentionally neither [`Send`] nor [`Sync`]. Almost nothing in this crate is.
 #[allow(missing_docs)]
@@ -168,17 +176,23 @@ impl XPAPI {
         }
     }
 
-    /// Get the [`Version`]s of X-Plane and XPLM, respectively.
+    /// Get the versions of X-Plane and XPLM, respectively.
+    /// 
     /// There are no guarantees about the form of the version numbers, except
-    /// that subsequent versions will have larger numbers.
-    pub fn get_versions(&mut self) -> (i32, i32) {
+    /// that subsequent versions will have greater numbers.
+    /// 
+    /// The first entry of the tuple is a tuple containing:
+    /// - The major version of X-Plane (the two most significant digits of the X-Plane version)
+    /// - All remaining digits of the X-Plane version
+    /// The second entry of the tuple is the XPLM version. 
+    pub fn get_versions(&mut self) -> ((i32, i32), i32) {
         let mut xp = 0i32;
         let mut xplm = 0i32;
         let mut host_id = XPLMHostApplicationID::XPlane;
         unsafe {
             XPLMGetVersions(&mut xp, &mut xplm, &mut host_id);
         }
-        (xp, xplm)
+        (xp_major_ver(xp, xp), xplm)
     }
 
     #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
@@ -190,16 +204,6 @@ impl XPAPI {
         let desc = unsafe { XPLMGetVirtualKeyDescription(u32::from(key) as i8) };
         unsafe {
             CStr::from_ptr(desc).to_str().unwrap() // UNWRAP: X-Plane promises to give good UTF-8.
-        }
-    }
-
-    /// Reload the current set of scenery.
-    ///
-    /// This will only cause X-Plane to re-read already loaded scenery, not load new scenery.
-    /// Equivalent to pressing "reload scenery" in the developer menu.
-    pub fn reload_scenery(&mut self) {
-        unsafe {
-            XPLMReloadScenery();
         }
     }
 

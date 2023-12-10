@@ -13,12 +13,13 @@ categories = ["api-bindings", "game-development"]
 
 [dependencies]
 libfmod = { version = "~2.206", optional = true }
-num_enum = "0.7"
-snafu = "0.7"
+num_enum = "~0.7"
+snafu = "~0.7"
+tailcall = "~0.1"
 xplane-sys = { path = "../xplane-sys" }
 
 [dev-dependencies]
-mockall = "0.11"
+mockall = "~0.11"
 xplane-sys = { path = "../xplane-sys", features = ["mockall"] }
 
 [features]

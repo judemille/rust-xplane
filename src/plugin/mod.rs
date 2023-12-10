@@ -36,6 +36,7 @@ pub trait Plugin: Sized {
     /// # Errors
     /// This function should error if something occurs that must prevent the plugin's use.
     fn start(xpapi: &mut XPAPI) -> Result<Self, Self::Error>;
+
     /// Called when the plugin is enabled
     ///
     /// If this function returns an Err, the plugin will remain disabled.

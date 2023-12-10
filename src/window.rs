@@ -60,7 +60,9 @@ impl From<Cursor> for XPLMCursorStatus {
 
 /// Trait for things that can define the behavior of a window
 pub trait WindowDelegate: 'static {
-    /// Draws this window
+    /// Draws this window.
+    /// You will need to perform all OpenGL calls and related XPLM calls
+    /// unsafely. 
     fn draw(&mut self, window: &Window);
     /// Handles a keyboard event
     ///
