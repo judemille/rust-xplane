@@ -19,7 +19,7 @@ tailcall = "~0.1"
 xplane-sys = { path = "../xplane-sys" }
 
 [dev-dependencies]
-mockall = "~0.11"
+mockall = "~0.12"
 xplane-sys = { path = "../xplane-sys", features = ["mockall"] }
 
 [features]

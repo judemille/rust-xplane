@@ -34,8 +34,6 @@ Some more examples can be found in the `examples/` directory.
 ~~This small snippet, however, is the minimal boilerplate needed to make your plugin compile.~~
 
 ```rust
-extern crate xplm;
-
 use xplane::plugin::{Plugin, PluginInfo};
 use xplane::{debugln, xplane_plugin};
 
