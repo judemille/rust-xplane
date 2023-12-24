@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use core::ffi::{c_int, c_void};
+use std::ffi::{c_int, c_void};
 use std::{
     cmp,
     ffi::{CString, NulError},
@@ -16,10 +16,9 @@ use std::{
 use snafu::prelude::*;
 
 use xplane_sys::{
-    XPLMDataRef, XPLMFindDataRef, XPLMGetDatab_f, XPLMGetDatad_f, XPLMGetDataf_f,
-    XPLMGetDatai_f, XPLMGetDatavf_f, XPLMGetDatavi_f, XPLMRegisterDataAccessor, XPLMSetDatab_f,
-    XPLMSetDatad_f, XPLMSetDataf_f, XPLMSetDatai_f, XPLMSetDatavf_f, XPLMSetDatavi_f,
-    XPLMUnregisterDataAccessor,
+    XPLMDataRef, XPLMFindDataRef, XPLMGetDatab_f, XPLMGetDatad_f, XPLMGetDataf_f, XPLMGetDatai_f,
+    XPLMGetDatavf_f, XPLMGetDatavi_f, XPLMRegisterDataAccessor, XPLMSetDatab_f, XPLMSetDatad_f,
+    XPLMSetDataf_f, XPLMSetDatai_f, XPLMSetDatavf_f, XPLMSetDatavi_f, XPLMUnregisterDataAccessor,
 };
 
 use super::{Access, ArrayRead, ArrayReadWrite, DataRead, DataReadWrite, DataType, ReadOnly};
@@ -259,13 +258,13 @@ pub enum CreateError {
 // The refcon is a pointer to the data
 
 /// Default read callback for single sized item that is `Copy`.
-unsafe extern "C" fn read_single<T: DataType + Copy>(refcon: *mut c_void) -> T {
+unsafe extern "C-unwind" fn read_single<T: DataType + Copy>(refcon: *mut c_void) -> T {
     let data_ptr = refcon.cast::<T>();
     unsafe { *data_ptr }
 }
 
 /// Default write callback for single sized item that is `Copy`.
-unsafe extern "C" fn write_single<T: DataType + Copy>(refcon: *mut c_void, value: T) {
+unsafe extern "C-unwind" fn write_single<T: DataType + Copy>(refcon: *mut c_void, value: T) {
     let data_ptr = refcon.cast::<T>();
     unsafe {
         *data_ptr = value;
@@ -273,7 +272,7 @@ unsafe extern "C" fn write_single<T: DataType + Copy>(refcon: *mut c_void, value
 }
 
 /// Byte array read callback
-unsafe extern "C" fn byte_array_read(
+unsafe extern "C-unwind" fn byte_array_read(
     refcon: *mut c_void,
     values: *mut c_void,
     offset: c_int,
@@ -283,7 +282,7 @@ unsafe extern "C" fn byte_array_read(
 }
 
 /// Byte array write callback
-unsafe extern "C" fn byte_array_write(
+unsafe extern "C-unwind" fn byte_array_write(
     refcon: *mut c_void,
     values: *mut c_void,
     offset: c_int,
@@ -303,7 +302,7 @@ unsafe extern "C" fn byte_array_write(
     clippy::cast_possible_truncation,
     clippy::cast_possible_wrap
 )]
-unsafe extern "C" fn array_read<T: Copy>(
+unsafe extern "C-unwind" fn array_read<T: Copy>(
     refcon: *mut c_void,
     values: *mut T,
     offset: c_int,
@@ -332,7 +331,7 @@ unsafe extern "C" fn array_read<T: Copy>(
 /// Reads up to max items from values and writes them to this dataref, starting at offset offset
 #[inline]
 #[allow(clippy::cast_sign_loss)]
-unsafe extern "C" fn array_write<T: Copy>(
+unsafe extern "C-unwind" fn array_write<T: Copy>(
     refcon: *mut c_void,
     values: *mut T,
     offset: c_int,

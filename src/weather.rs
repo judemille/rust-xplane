@@ -41,11 +41,7 @@ impl WeatherApi {
     /// Get the weather at the given location.
     /// The location must be near the user.
     /// Weather may not be available at the location, in which case [`None`] will be returned.
-    pub fn get_weather_at_location(
-        lat: f64,
-        lon: f64,
-        alt_m: f64,
-    ) -> Option<XPLMWeatherInfo_t> {
+    pub fn get_weather_at_location(lat: f64, lon: f64, alt_m: f64) -> Option<XPLMWeatherInfo_t> {
         let mut weather: MaybeUninit<XPLMWeatherInfo_t> = MaybeUninit::zeroed();
         if unsafe { XPLMGetWeatherAtLocation(lat, lon, alt_m, weather.as_mut_ptr()) } == 1 {
             unsafe { Some(weather.assume_init()) }

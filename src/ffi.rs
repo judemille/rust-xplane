@@ -9,7 +9,7 @@
 
 use std::{ffi::CString, iter, str::Utf8Error, string::FromUtf8Error};
 
-use core::ffi::c_char;
+use std::ffi::c_char;
 
 /// A fixed-length array of characters that can be passed to C functions and converted into a
 /// String

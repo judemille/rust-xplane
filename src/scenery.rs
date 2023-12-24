@@ -14,7 +14,7 @@ use snafu::prelude::*;
 use xplane_sys::{
     XPLMCreateInstance, XPLMCreateProbe, XPLMDestroyProbe, XPLMLoadObject, XPLMLoadObjectAsync,
     XPLMLookupObjects, XPLMObjectRef, XPLMProbeInfo_t, XPLMProbeRef, XPLMProbeResult,
-    XPLMProbeTerrainXYZ, XPLMProbeType, XPLMUnloadObject, XPLMReloadScenery
+    XPLMProbeTerrainXYZ, XPLMProbeType, XPLMReloadScenery, XPLMUnloadObject,
 };
 
 #[cfg(feature = "XPLM300")]
@@ -38,9 +38,12 @@ impl TerrainProbe {
     #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
     /// Probe the terrain at the given coordinates.
     /// All coordinates are OpenGL local coordinates.
+    ///
     /// # Errors
+    ///
     /// If [`XPLMProbeTerrainXYZ`] says that an error has occured, an error will be returned.
     /// I have no way of telling you what went wrong.
+    ///
     /// # Panics
     /// This function will panic if [`XPLMProbeTerrainXYZ`] returns an invalid result.
     /// This shouldn't be possible.
@@ -290,7 +293,7 @@ impl SceneryApi {
     }
 }
 
-unsafe extern "C" fn library_enumerator(file_path: *const c_char, refcon: *mut c_void) {
+unsafe extern "C-unwind" fn library_enumerator(file_path: *const c_char, refcon: *mut c_void) {
     let out = unsafe {
         refcon.cast::<Vec<PathBuf>>().as_mut().unwrap() // UNWRAP: This pointer will never be null.
     };
@@ -301,7 +304,7 @@ unsafe extern "C" fn library_enumerator(file_path: *const c_char, refcon: *mut c
     out.push(file_path);
 }
 
-unsafe extern "C" fn object_loaded_callback<C>(obj: XPLMObjectRef, refcon: *mut c_void)
+unsafe extern "C-unwind" fn object_loaded_callback<C>(obj: XPLMObjectRef, refcon: *mut c_void)
 where
     C: FnOnce(Option<XObject>),
 {

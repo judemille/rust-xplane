@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use core::ffi::{c_int, c_void};
+use std::ffi::{c_int, c_void};
 use std::{fmt, marker::PhantomData, mem};
 
 use snafu::prelude::*;
@@ -241,7 +241,7 @@ impl Drop for AvionicsCustomizationData {
     }
 }
 
-unsafe extern "C" fn avionics_draw_callback(
+unsafe extern "C-unwind" fn avionics_draw_callback(
     device_id: XPLMDeviceID,
     is_before: c_int,
     refcon: *mut c_void,

@@ -17,49 +17,110 @@
 #[macro_export]
 macro_rules! xplane_plugin {
     ($plugin_type: ty) => {
+        struct _UncheckedSyncUnsafeCell<T>(::std::cell::UnsafeCell<T>);
+
+        /// Safety: dereferencing the pointer from `UnsafeCell::get` must involve external synchronization.
+        unsafe impl Sync
+            for _UncheckedSyncUnsafeCell<$crate::plugin::internal::PluginData<$plugin_type>>
+        {
+        }
+
         // The plugin
-        static mut PLUGIN: $crate::plugin::internal::PluginData<$plugin_type> =
+        static PLUGIN: _UncheckedSyncUnsafeCell<
+            $crate::plugin::internal::PluginData<$plugin_type>,
+        > = _UncheckedSyncUnsafeCell(::std::cell::UnsafeCell::new(
             $crate::plugin::internal::PluginData {
-                plugin: 0 as *mut _,
-            };
+                plugin: ::std::ptr::null_mut(),
+            },
+        ));
 
         #[allow(non_snake_case)]
         #[no_mangle]
-        pub unsafe extern "C" fn XPluginStart(
-            name: *mut ::std::os::raw::c_char,
-            signature: *mut ::std::os::raw::c_char,
-            description: *mut ::std::os::raw::c_char,
-        ) -> ::std::os::raw::c_int {
-            $crate::plugin::internal::xplugin_start(&mut PLUGIN, name, signature, description)
+        /// Shim around `xplane::plugin::internal::xplugin_start`.
+        pub unsafe extern "C-unwind" fn XPluginStart(
+            name: *mut ::std::ffi::c_char,
+            signature: *mut ::std::ffi::c_char,
+            description: *mut ::std::ffi::c_char,
+        ) -> ::std::ffi::c_int {
+            unsafe {
+                $crate::plugin::internal::xplugin_start(
+                    PLUGIN
+                        .0
+                        .get()
+                        .as_mut()
+                        .expect("The contents of PLUGIN should never be NULL."),
+                    name,
+                    signature,
+                    description,
+                )
+            }
         }
 
         #[allow(non_snake_case)]
         #[no_mangle]
-        pub unsafe extern "C" fn XPluginStop() {
-            $crate::plugin::internal::xplugin_stop(&mut PLUGIN)
+        /// Shim around `xplane::plugin::internal::xplugin_stop`.
+        pub unsafe extern "C-unwind" fn XPluginStop() {
+            unsafe {
+                $crate::plugin::internal::xplugin_stop(
+                    PLUGIN
+                        .0
+                        .get()
+                        .as_mut()
+                        .expect("The contents of PLUGIN should never be NULL."),
+                )
+            }
         }
 
         #[allow(non_snake_case)]
         #[no_mangle]
-        pub unsafe extern "C" fn XPluginEnable() -> ::std::os::raw::c_int {
-            $crate::plugin::internal::xplugin_enable(&mut PLUGIN)
+        /// Shim around `xplane::plugin::internal::xplugin_enable`.
+        pub unsafe extern "C-unwind" fn XPluginEnable() -> ::std::ffi::c_int {
+            unsafe {
+                $crate::plugin::internal::xplugin_enable(
+                    PLUGIN
+                        .0
+                        .get()
+                        .as_mut()
+                        .expect("The contents of PLUGIN should never be NULL."),
+                )
+            }
         }
 
         #[allow(non_snake_case)]
         #[no_mangle]
-        pub unsafe extern "C" fn XPluginDisable() {
-            $crate::plugin::internal::xplugin_disable(&mut PLUGIN)
+        /// Shim around `xplane::plugin::internal::xplugin_disable`.
+        pub unsafe extern "C-unwind" fn XPluginDisable() {
+            unsafe {
+                $crate::plugin::internal::xplugin_disable(
+                    PLUGIN
+                        .0
+                        .get()
+                        .as_mut()
+                        .expect("The contents of PLUGIN should never be NULL."),
+                )
+            }
         }
 
         #[allow(non_snake_case)]
-        #[allow(unused_variables)]
         #[no_mangle]
-        pub unsafe extern "C" fn XPluginReceiveMessage(
-            from: ::std::os::raw::c_int,
-            message: ::std::os::raw::c_int,
-            param: *mut ::std::os::raw::c_void,
+        /// Shim around `xplane::plugin::internal::xplugin_receive_message`.
+        pub unsafe extern "C-unwind" fn XPluginReceiveMessage(
+            from: ::std::ffi::c_int,
+            message: ::std::ffi::c_int,
+            param: *mut ::std::ffi::c_void,
         ) {
-            $crate::plugin::internal::xplugin_receive_message(&mut PLUGIN, from, message, param)
+            unsafe {
+                $crate::plugin::internal::xplugin_receive_message(
+                    PLUGIN
+                        .0
+                        .get()
+                        .as_mut()
+                        .expect("The contents of PLUGIN should never be NULL."),
+                    from,
+                    message,
+                    param,
+                )
+            }
         }
     };
 }

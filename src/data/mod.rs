@@ -265,7 +265,7 @@ impl DataApi {
         OwnedData::new_with_value(name, value)
     }
 
-    /// Creates a new [`SharedData<T>`]. 
+    /// Creates a new [`SharedData<T>`].
     /// The function in your handler will be called every time the dataref's value changes.
     /// # Errors
     /// Returns an error if the dataref name contains a NUL byte, or if the type does not

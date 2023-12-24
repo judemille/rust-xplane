@@ -6,7 +6,7 @@
 
 use std::path::PathBuf;
 
-use crate::{ffi::StringBuffer, NoSendSync, XPAPI, feature::Feature};
+use crate::{feature::Feature, ffi::StringBuffer, NoSendSync, XPAPI};
 use xplane_sys::{XPLMGetNthAircraftModel, XPLMGetPrefsPath, XPLMGetSystemPath};
 
 /// Struct to access X-Plane's path API.
@@ -46,11 +46,7 @@ impl PathApi {
         let mut path = StringBuffer::new(513);
 
         unsafe {
-            XPLMGetNthAircraftModel(
-                acf_id,
-                filename.as_mut_ptr(),
-                path.as_mut_ptr(),
-            );
+            XPLMGetNthAircraftModel(acf_id, filename.as_mut_ptr(), path.as_mut_ptr());
         }
 
         let path = path.into_string().unwrap();

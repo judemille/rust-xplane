@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use core::ffi::{c_int, c_void};
+use std::ffi::{c_int, c_void};
 use std::{
     ffi::{CString, NulError},
     marker::PhantomData,
@@ -252,7 +252,7 @@ impl Drop for CommandHandlerData {
 }
 
 /// Command handler callback
-unsafe extern "C" fn command_handler(
+unsafe extern "C-unwind" fn command_handler(
     _: XPLMCommandRef,
     phase: XPLMCommandPhase,
     refcon: *mut c_void,

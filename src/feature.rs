@@ -10,7 +10,7 @@ use std::{
     marker::PhantomData,
 };
 
-use core::ffi::{c_char, c_void};
+use std::ffi::{c_char, c_void};
 
 use xplane_sys;
 
@@ -118,7 +118,7 @@ impl FeatureApi {
 
 /// Interprets refcon as a pointer to a Vec<Feature>.
 /// Allocates a new Feature and adds it to the vector
-unsafe extern "C" fn feature_callback(feature: *const c_char, refcon: *mut c_void) {
+unsafe extern "C-unwind" fn feature_callback(feature: *const c_char, refcon: *mut c_void) {
     let features = refcon.cast::<Vec<Feature>>();
 
     let name = unsafe { CStr::from_ptr(feature) };

@@ -4,19 +4,13 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#![deny(trivial_casts)]
-#![warn(clippy::all, clippy::pedantic, clippy::cargo, missing_docs)]
-// Making some lints from clippy::pedantic allow instead of warn.
-#![allow(clippy::module_name_repetitions)]
-
 //! Bindings to the X-Plane plugin SDK.
 //! These should be mostly safe, although care must be taken in some aspects.
-//! Any functions or modules that could behave in unexpected ways will document that.
-//! This crate handles panics in the `XPluginStart`, `XPluginEnable`, `XPluginDisable`,
-//! and `XPluginStop` callbacks. In those cases, your plugin should be disabled by X-Plane.
-//! This may cause a memory leak, however. Unwinds are not caught in any other callback;
-//! the philosophy being that if something has gone critically wrong while the plugin is running,
-//! it probably affects the integrity of the simulator, and should prevent it running.
+//! Any functions or modules that could behave in unexpected ways will try document that.
+//!
+//! Panics should reliably unwind out into the simulator and produce a backtrace. The core
+//! will dump in a non-graceful manner, however, since X-Plane does not have an exception
+//! handler with the right personality for libunwind to grab at the bottom of the stack.
 
 #[cfg(feature = "XPLM400")]
 use crate::avionics::AvionicsApi;
@@ -35,7 +29,7 @@ use crate::scenery::SceneryApi;
 use crate::sound::SoundApi;
 #[cfg(feature = "XPLM400")]
 use crate::weather::WeatherApi;
-use core::ffi::c_void;
+use std::ffi::c_void;
 use std::{
     ffi::{CStr, CString, NulError},
     marker::PhantomData,
@@ -177,14 +171,14 @@ impl XPAPI {
     }
 
     /// Get the versions of X-Plane and XPLM, respectively.
-    /// 
+    ///
     /// There are no guarantees about the form of the version numbers, except
     /// that subsequent versions will have greater numbers.
-    /// 
+    ///
     /// The first entry of the tuple is a tuple containing:
     /// - The major version of X-Plane (the two most significant digits of the X-Plane version)
     /// - All remaining digits of the X-Plane version
-    /// The second entry of the tuple is the XPLM version. 
+    /// The second entry of the tuple is the XPLM version.
     pub fn get_versions(&mut self) -> ((i32, i32), i32) {
         let mut xp = 0i32;
         let mut xplm = 0i32;
@@ -302,7 +296,7 @@ macro_rules! debug {
 #[macro_export]
 #[allow(unused_unsafe)]
 macro_rules! debugln {
-    () => ($crate::debug!("\n"));
+    ($x:ident) => ($crate::debug!($x, "\n"));
     ($x:ident, $($arg:tt)*) => ({
         let mut formatted_string: String = std::fmt::format(std::format_args!($($arg)*));
         formatted_string.push_str("\n");

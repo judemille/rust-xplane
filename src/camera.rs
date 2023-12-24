@@ -166,7 +166,7 @@ impl CameraApi {
     }
 }
 
-unsafe extern "C" fn camera_controller(
+unsafe extern "C-unwind" fn camera_controller(
     out_pos: *mut XPLMCameraPosition_t,
     is_losing_control: c_int,
     refcon: *mut c_void,

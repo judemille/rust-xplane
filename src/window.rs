@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use core::ffi::{c_char, c_int, c_void};
+use std::ffi::{c_char, c_int, c_void};
 use std::{marker::PhantomData, mem, ops::Deref, ptr};
 
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -62,7 +62,7 @@ impl From<Cursor> for XPLMCursorStatus {
 pub trait WindowDelegate: 'static {
     /// Draws this window.
     /// You will need to perform all OpenGL calls and related XPLM calls
-    /// unsafely. 
+    /// unsafely.
     fn draw(&mut self, window: &Window);
     /// Handles a keyboard event
     ///
@@ -220,7 +220,7 @@ impl Drop for Window {
 }
 
 /// Callback in which windows are drawn
-unsafe extern "C" fn window_draw(_window: xplane_sys::XPLMWindowID, refcon: *mut c_void) {
+unsafe extern "C-unwind" fn window_draw(_window: xplane_sys::XPLMWindowID, refcon: *mut c_void) {
     let window = unsafe { refcon.cast::<Window>().as_mut().unwrap() }; // This pointer should not be null.
     unsafe {
         window.delegate.as_mut().unwrap().draw(window);
@@ -228,7 +228,7 @@ unsafe extern "C" fn window_draw(_window: xplane_sys::XPLMWindowID, refcon: *mut
 }
 
 /// Keyboard callback
-unsafe extern "C" fn window_key(
+unsafe extern "C-unwind" fn window_key(
     _window: xplane_sys::XPLMWindowID,
     key: c_char,
     flags: xplane_sys::XPLMKeyFlags,
@@ -258,7 +258,7 @@ unsafe extern "C" fn window_key(
 }
 
 /// Mouse callback
-unsafe extern "C" fn window_mouse(
+unsafe extern "C-unwind" fn window_mouse(
     _window: xplane_sys::XPLMWindowID,
     x: c_int,
     y: c_int,
@@ -278,7 +278,7 @@ unsafe extern "C" fn window_mouse(
 }
 
 /// Cursor callback
-unsafe extern "C" fn window_cursor(
+unsafe extern "C-unwind" fn window_cursor(
     _window: xplane_sys::XPLMWindowID,
     x: c_int,
     y: c_int,
@@ -296,7 +296,7 @@ unsafe extern "C" fn window_cursor(
 }
 
 /// Scroll callback
-unsafe extern "C" fn window_scroll(
+unsafe extern "C-unwind" fn window_scroll(
     _window: xplane_sys::XPLMWindowID,
     x: c_int,
     y: c_int,

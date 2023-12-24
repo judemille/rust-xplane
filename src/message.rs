@@ -32,7 +32,7 @@ pub enum MessageId {
     /// A plane has crashed. The message parameter is meaningless.
     PlaneCrashed = XPLM_MSG_PLANE_CRASHED,
     /// A plane has finished loading.
-    /// 
+    ///
     /// The message parameter is the ID of the affected plane.
     /// `0` indicates the user's plane.
     /// Interpret the value of the message parameter as a [`c_int`](std::ffi::c_int), not as a pointer.
@@ -48,7 +48,7 @@ pub enum MessageId {
     /// The message parameter is meaningless.
     AirplaneCountChanged = XPLM_MSG_AIRPLANE_COUNT_CHANGED,
     /// A plane has been unloaded.
-    /// 
+    ///
     /// The message parameter is the ID of the affected plane.
     /// `0` indicates the user's plane.
     /// Interpret the value of the message parameter as a [`c_int`](std::ffi::c_int), not as a pointer.
@@ -60,7 +60,7 @@ pub enum MessageId {
     WillWritePrefs = XPLM_MSG_WILL_WRITE_PREFS,
     /// A livery has been loaded for an airplane.
     /// The loaded livery can be checked via datarefs.
-    /// 
+    ///
     /// The message parameter is the ID of the affected plane.
     /// `0` indicates the user's plane.
     /// Interpret the value of the message parameter as a [`c_int`](std::ffi::c_int), not as a pointer.
@@ -68,20 +68,20 @@ pub enum MessageId {
     #[cfg(feature = "XPLM301")]
     /// Sent just before X-Plane enters virtual-reality mode.
     /// Any windows not positioned in VR mode will no longer be visible to the user.
-    /// 
+    ///
     /// The message parameter is meaningless.
     EnteredVR = XPLM_MSG_ENTERED_VR,
     #[cfg(feature = "XPLM301")]
     /// Sent just before X-Plane leaves virtual-reality modes.
     /// You probably want to clean up any windows positioned in VR mode.
-    /// 
+    ///
     /// The message parameter is meaningless.
     ExitingVR = XPLM_MSG_EXITING_VR,
     #[cfg(feature = "XPLM303")]
     /// Another plugin wants to take over AI planes.
     /// Use the sender ID to decide whether you wish to give up control. If you will not, ignore the message.
     /// See [X-Plane's docs](https://developer.x-plane.com/sdk/XPLMPlugin) for more info.
-    /// 
+    ///
     /// The message parameter is meaningless.
     ReleasePlanes = XPLM_MSG_RELEASE_PLANES,
     #[cfg(feature = "XPLM400")]
@@ -99,7 +99,7 @@ pub enum MessageId {
     /// Sent per-frame (at-most) if/when datarefs are added.
     /// Includes the new dataref total count so your plugin can cache the count, and only query about the newly added ones.
     /// Untested, but the parameter is probably a [`c_int`](std::ffi::c_int), not a pointer.
-    /// 
+    ///
     /// This message is only sent to plugins that enable the `XPLM_WANTS_DATAREF_NOTIFICATIONS` feature.
     DatarefsAdded = XPLM_MSG_DATAREFS_ADDED,
     #[num_enum(catch_all)]

@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use core::ffi::c_void;
+use std::ffi::c_void;
 use std::{
     ffi::{CString, NulError},
     fmt::Debug,
@@ -246,7 +246,9 @@ impl<A> DataRead<bool> for DataRef<bool, A> {
 impl DataReadWrite<bool> for DataRef<bool, ReadWrite> {
     fn set(&mut self, value: bool) {
         let int_value = i32::from(value);
-        unsafe { XPLMSetDatai(self.id, int_value); }
+        unsafe {
+            XPLMSetDatai(self.id, int_value);
+        }
     }
 }
 

@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use core::ffi::c_char;
+use std::ffi::c_char;
 use std::ffi::CStr;
 
 use xplane_sys::XPLMSetErrorCallback;
@@ -28,7 +28,7 @@ pub fn set_error_handler(_x: &mut XPAPI, handler: fn(&str)) {
 }
 
 /// C error handler callback
-unsafe extern "C" fn error_handler(message: *const c_char) {
+unsafe extern "C-unwind" fn error_handler(message: *const c_char) {
     let message_cs = unsafe { CStr::from_ptr(message) };
     if let Ok(message_str) = message_cs.to_str() {
         if let Some(handler) = unsafe { HANDLER } {

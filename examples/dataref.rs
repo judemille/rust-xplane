@@ -90,7 +90,7 @@ impl Plugin for DataRefPlugin {
         _xpapi: &mut xplane::XPAPI,
         _from: i32,
         _message: MessageId,
-        _param: *mut core::ffi::c_void,
+        _param: *mut std::ffi::c_void,
     ) {
     }
 

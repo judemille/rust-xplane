@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use core::ffi::{c_int, c_void};
+use std::ffi::{c_int, c_void};
 use std::{
     cell::{Cell, RefCell},
     ffi::{CString, NulError},
@@ -766,7 +766,7 @@ fn check_c_string(text: &str) -> Result<(), NulError> {
 /// The menu handler callback used for all menu items
 ///
 /// `item_ref` is a pointer to the relevant Item, allocated in an Rc
-unsafe extern "C" fn menu_handler(_menu_ref: *mut c_void, item_ref: *mut c_void) {
+unsafe extern "C-unwind" fn menu_handler(_menu_ref: *mut c_void, item_ref: *mut c_void) {
     let item = item_ref as *const Item;
     unsafe {
         (*item).handle_click();

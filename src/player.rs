@@ -79,7 +79,9 @@ impl PlayerApi {
         }
         // debugln!("xplane_sys: player.rs: reload_aircraft()");
         let filename_c = std::ffi::CString::new(file.as_os_str().to_string_lossy().into_owned())?;
-        unsafe { xplane_sys::XPLMSetUsersAircraft(filename_c.as_ptr()); }
+        unsafe {
+            xplane_sys::XPLMSetUsersAircraft(filename_c.as_ptr());
+        }
         Ok(())
     }
 
@@ -88,7 +90,9 @@ impl PlayerApi {
     /// Will return an error if `airport_code` contains a NUL byte.
     pub fn place_at_airport(&mut self, airport_code: &str) -> Result<(), NulError> {
         let airport_code_c = std::ffi::CString::new(airport_code)?;
-        unsafe { xplane_sys::XPLMPlaceUserAtAirport(airport_code_c.as_ptr()); }
+        unsafe {
+            xplane_sys::XPLMPlaceUserAtAirport(airport_code_c.as_ptr());
+        }
         Ok(())
     }
 }

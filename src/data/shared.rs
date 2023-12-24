@@ -104,7 +104,7 @@ where
     fn data_changed(&mut self, x: &mut XPAPI, dref: &mut DataRef<T, ReadWrite>);
 }
 
-unsafe extern "C" fn handle_shared_data_change<T: DataType + ?Sized + 'static>(
+unsafe extern "C-unwind" fn handle_shared_data_change<T: DataType + ?Sized + 'static>(
     refcon: *mut c_void,
 ) {
     let ctx = unsafe {

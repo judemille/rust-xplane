@@ -38,9 +38,12 @@ opt-level = 1
 
 [lints.rust]
 unsafe_op_in_unsafe_fn = "deny"
+missing_docs = "warn"
 
 [lints.clippy]
+all = "warn"
 pedantic = "warn"
+cargo = "warn"
 float_cmp_const = "deny"
 self_named_module_files = "deny"
 semicolon_inside_block = "deny"
@@ -48,6 +51,7 @@ todo = "warn"
 try_err = "deny"
 lossy_float_literal = "deny"
 multiple_crate_versions = "allow"
+module_name_repetitions = "allow"
 
 [[example]]
 name = "minimal"

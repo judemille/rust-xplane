@@ -53,7 +53,7 @@
 
 use std::{f32, fmt, marker::PhantomData, mem, time::Duration};
 
-use core::ffi::{c_float, c_int, c_void};
+use std::ffi::{c_float, c_int, c_void};
 
 pub use xplane_sys::XPLMFlightLoopPhaseType as FlightLoopPhase;
 
@@ -304,7 +304,7 @@ impl From<Duration> for LoopResult {
 /// The flight loop callback that X-Plane calls
 ///
 /// This expands to a separate callback for every type C.
-unsafe extern "C" fn flight_loop_callback<T: 'static>(
+unsafe extern "C-unwind" fn flight_loop_callback<T: 'static>(
     since_last_call: c_float,
     since_loop: c_float,
     counter: c_int,
@@ -361,7 +361,7 @@ mod tests {
                     2 => LoopResult::Loops(2),
                     3 => LoopResult::Seconds(1.5f32),
                     4 => LoopResult::Deactivate,
-                    _ => panic!("We should not have gotten here!"),
+                    _ => unreachable!(),
                 }
             }
         }
