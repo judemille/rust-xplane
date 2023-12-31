@@ -13,7 +13,7 @@ This project is designed to support any 64-bit version of X-Plane, so long as th
 Testing is performed with XPLM400 and X-Plane 12, but an effort will be made to keep base API compatibility at XPLM210.
 Please open an issue if there is a compatibility regression.
 
-Most development happens on the `develop` branch, with the `main` branch kept stable at releases.
+Most development happens on the `develop` branch, with the `trunk` branch kept stable at releases.
 
 ## Status
 
