@@ -2,11 +2,11 @@
 
 [![Crates.io Version](https://img.shields.io/crates/v/xplane.svg)](https://crates.io/crates/xplane)
 [![Documentation](https://docs.rs/xplane/badge.svg)](https://docs.rs/xplane)
-[![License](https://img.shields.io/crates/l/xplane.svg)](https://github.com/judemille/rust-xplane#license)
+[![License](https://img.shields.io/crates/l/xplane.svg)](https://git.sr.ht/~jdemille/xplane.rs#license)
 
 ## Purpose
 
-**Rust X-Plane** provides a convenient interface for X-Plane plugin development in the Rust programming language for all
+**xplane.rs** provides a convenient interface for X-Plane plugin development in the Rust programming language for all
 platforms. These interfaces should *mostly* be safe.
 
 This project is designed to support any 64-bit version of X-Plane, so long as the right feature gates are used.

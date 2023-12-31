@@ -3,12 +3,12 @@ authors = ["Julia DeMille <me@jdemille.com>", "Sam Crow <samcrow@uw.edu>"]
 name = "xplane"
 version = "0.1.0-alpha.1"
 license = "MPL-2.0"
-repository = "https://github.com/judemille/rust-xplane"
+repository = "https://git.sr.ht/~jdemille/xplane.rs"
 keywords = ["X-Plane", "plugin"]
 description = "High-level interfaces to the X-Plane plugin SDK"
 readme = "README.md"
 edition = "2021"
-rust-version = "1.74"
+rust-version = "1.75"
 categories = ["api-bindings", "game-development"]
 
 [dependencies]
