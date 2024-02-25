@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2024 Julia DeMille <me@jdemille.com>
+
+SPDX-License-Identifier: MPL-2.0
+-->
+
 # X-Plane plugin APIs for Rust
 
 [![Crates.io Version](https://img.shields.io/crates/v/xplane.svg)](https://crates.io/crates/xplane)

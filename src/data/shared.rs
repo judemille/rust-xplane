@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2024 Julia DeMille <me@jdemille.com>
+//
+// SPDX-License-Identifier: MPL-2.0
+
 use std::{
     ffi::{c_void, CString, NulError},
     marker::PhantomData,

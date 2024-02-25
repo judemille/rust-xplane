@@ -1,8 +1,6 @@
-// Copyright (c) 2023 Julia DeMille.
+// SPDX-FileCopyrightText: 2024 Julia DeMille <me@jdemille.com>
 //
-// This Source Code Form is subject to the terms of the Mozilla Public
-// License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+// SPDX-License-Identifier: MPL-2.0
 
 use std::ffi::{c_int, c_void};
 use std::{fmt, marker::PhantomData, mem};
@@ -278,6 +276,12 @@ impl AvionicsApi {
 
 #[cfg(test)]
 mod tests {
+    use std::{
+        cell::RefCell,
+        ptr::{self, NonNull},
+        rc::Rc,
+    };
+
     use super::*;
     use crate::make_x;
     use mockall::*;
@@ -309,6 +313,8 @@ mod tests {
         }
         let mut x = make_x();
         let mut seq = Sequence::new();
+        let refcon_cell = Rc::new(RefCell::new(ptr::null_mut::<c_void>()));
+        let refcon_cell_cloned = refcon_cell.clone();
         let customize_avionics_ctx = xplane_sys::XPLMRegisterAvionicsCallbacksEx_context();
         customize_avionics_ctx
             .expect()
@@ -318,14 +324,12 @@ mod tests {
             })
             .once()
             .in_sequence(&mut seq)
-            .return_once_st(|s| {
-                let thing: *mut i32 = &mut 1;
+            .return_once_st(move |s| {
                 unsafe {
                     let s = *s;
-                    assert_eq!(avionics_draw_callback(s.deviceId, 1, s.refcon), 1);
-                    assert_eq!(avionics_draw_callback(s.deviceId, 0, s.refcon), 0);
+                    *refcon_cell_cloned.borrow_mut() = s.refcon;
                 }
-                thing.cast::<c_void>()
+                NonNull::dangling().as_ptr()
             }); // Pointer meaningless.
         let unregister_customize_avionics_ctx =
             xplane_sys::XPLMUnregisterAvionicsCallbacks_context();
@@ -334,11 +338,25 @@ mod tests {
             .once()
             .in_sequence(&mut seq)
             .return_once_st(|_| ());
-        x.avionics
+        let customization = x
+            .avionics
             .try_new_customization(
                 DeviceID::PrimusMfd(ThreeSideDevice::Center),
                 Drawer { state: 0 },
             )
             .expect("Could not customize avionics!");
+        customize_avionics_ctx.checkpoint();
+        unsafe {
+            assert_eq!(
+                avionics_draw_callback(XPLMDeviceID::Primus_MFD_Center, 1, *refcon_cell.borrow()),
+                1
+            );
+            assert_eq!(
+                avionics_draw_callback(XPLMDeviceID::Primus_MFD_Center, 0, *refcon_cell.borrow()),
+                0
+            );
+        }
+        drop(customization);
+        unregister_customize_avionics_ctx.checkpoint();
     }
 }
