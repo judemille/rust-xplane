@@ -34,7 +34,7 @@ jobs:
     - name: Ensure Rust is up to date.
       run: rustup default stable && rustup update
     - name: Build
-      run: cargo build --verbose -FXPLM400 -Ffmod
+      run: cargo build --verbose -FXPLM400
     - name: Run tests
       run: cargo test --verbose -FXPLM400
   least-features:
