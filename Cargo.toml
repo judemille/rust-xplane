@@ -20,11 +20,11 @@ libfmod = { version = "~2.206", optional = true }
 num_enum = "~0.7"
 snafu = "~0.7"
 tailcall = "~0.1"
-xplane-sys = { version = "~4.0" }
+xplane-sys = { version = "4.0.104" }
 
 [dev-dependencies]
 mockall = "~0.12"
-xplane-sys = { version = "~4.0", features = ["mockall"] }
+xplane-sys = { version = "4.0.104", features = ["mockall"] }
 
 [features]
 XPLM400 = ["XPLM303", "xplane-sys/XPLM400"]
@@ -69,7 +69,7 @@ name = "menus"
 crate-type = ["cdylib"]
 
 [package.metadata.docs.rs]
-features = ["XPLM400", "fmod"]
+features = ["XPLM400"]
 targets = [
     "x86_64-unknown-linux-gnu",
     "x86_64-apple-darwin",
