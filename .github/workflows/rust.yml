@@ -30,21 +30,21 @@ jobs:
     runs-on: ubuntu-latest
     name: Build and Run Tests
     steps:
-    - uses: actions/checkout@v3
-    - name: Ensure Rust is up to date.
-      run: rustup default stable && rustup update
-    - name: Build
-      run: cargo build --verbose -FXPLM400
-    - name: Run tests
-      run: cargo test --verbose -FXPLM400
+      - uses: actions/checkout@v4
+      - name: Ensure Rust is up to date.
+        run: rustup default stable && rustup update
+      - name: Build
+        run: cargo build --verbose -FXPLM400
+      - name: Run tests
+        run: cargo test --verbose -FXPLM400
   least-features:
     runs-on: ubuntu-latest
     name: Build and Run Tests with XPLM210
     steps:
-    - uses: actions/checkout@v3
-    - name: Ensure Rust is up to date.
-      run: rustup default stable && rustup update
-    - name: Build
-      run: cargo build --verbose -FXPLM210
-    - name: Run tests
-      run: cargo test --verbose -FXPLM210
+      - uses: actions/checkout@v4
+      - name: Ensure Rust is up to date.
+        run: rustup default stable && rustup update
+      - name: Build
+        run: cargo build --verbose -FXPLM210
+      - name: Run tests
+        run: cargo test --verbose -FXPLM210

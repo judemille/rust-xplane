@@ -28,17 +28,16 @@ xplane-sys = { path = "../xplane-sys", features = ["mockall"] }
 
 [features]
 XPLM400 = ["XPLM303", "xplane-sys/XPLM400"]
-XPLM303 = ["XPLM301", "xplane-sys/XPLM303"]
+XPLM303 = ["XPLM302", "xplane-sys/XPLM303"]
+XPLM302 = ["XPLM301", "xplane-sys/XPLM301"]
 XPLM301 = ["XPLM300", "xplane-sys/XPLM301"]
 XPLM300 = ["XPLM210", "xplane-sys/XPLM300"]
 XPLM210 = ["xplane-sys/XPLM210"]
+stub-linux = ["xplane-sys/stub-linux"]
 fmod = ["dep:libfmod", "XPLM400", "xplane-sys/fmod"]
 
 [profile.release]
 lto = true
-
-[profile.dev]
-opt-level = 1
 
 [lints.rust]
 unsafe_op_in_unsafe_fn = "deny"
