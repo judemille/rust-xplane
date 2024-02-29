@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-use std::ffi::c_void;
+use std::{ffi::c_void, fmt::Display};
 
 use crate::{message::MessageId, XPAPI};
 
@@ -26,7 +26,7 @@ pub struct PluginInfo {
 /// The trait that all plugins should implement
 pub trait Plugin: Sized {
     /// The error type that a plugin may encounter when starting up or enabling
-    type Error: std::error::Error;
+    type Error: Debug + Display;
 
     /// Called when X-Plane loads this plugin
     ///
