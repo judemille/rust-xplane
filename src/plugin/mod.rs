@@ -2,7 +2,10 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-use std::{ffi::c_void, fmt::Display};
+use std::{
+    ffi::c_void,
+    fmt::{Debug, Display},
+};
 
 use crate::{message::MessageId, XPAPI};
 
