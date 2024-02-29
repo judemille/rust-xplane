@@ -12,7 +12,7 @@ keywords = ["X-Plane", "plugin"]
 description = "High-level interfaces to the X-Plane plugin SDK"
 readme = "README.md"
 edition = "2021"
-rust-version = "1.75"
+rust-version = "1.76"
 categories = ["api-bindings", "game-development"]
 
 [dependencies]
@@ -20,11 +20,11 @@ libfmod = { version = "~2.206", optional = true }
 num_enum = "~0.7"
 snafu = "~0.7"
 tailcall = "~0.1"
-xplane-sys = { version = "4.0.104" }
+xplane-sys = { version = ">= 4.0.104, < 4.1.0" }
 
 [dev-dependencies]
 mockall = "~0.12"
-xplane-sys = { version = "4.0.104", features = ["mockall"] }
+xplane-sys = { version = ">= 4.0.104, < 4.1.0", features = ["mockall"] }
 
 [features]
 XPLM400 = ["XPLM303", "xplane-sys/XPLM400"]
