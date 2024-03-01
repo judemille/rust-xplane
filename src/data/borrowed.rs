@@ -92,7 +92,6 @@ macro_rules! dataref_type {
         write $write_fn:ident;
     ) => {
         impl<A> ArrayRead<[$native_type]> for DataRef<[$native_type], A> {
-            #[allow(trivial_casts)]
             fn get(&self, dest: &mut [$native_type]) -> usize {
                 let size = array_size(dest.len());
                 let copy_count = unsafe {
@@ -103,11 +102,11 @@ macro_rules! dataref_type {
                         size,
                     )
                 };
-                copy_count as usize
+                copy_count.try_into().unwrap()
             }
             fn len(&self) -> usize {
                 let size = unsafe { $read_fn(self.id, ptr::null_mut(), 0, 0) };
-                size as usize
+                size.try_into().unwrap()
             }
         }
 
@@ -116,7 +115,12 @@ macro_rules! dataref_type {
                 let size = array_size(values.len());
                 unsafe {
                     // Cast to *mut because the API requires it
-                    $write_fn(self.id, values.as_ptr() as *mut $sim_native_type, 0, size);
+                    $write_fn(
+                        self.id,
+                        values.as_ptr().cast::<$sim_native_type>().cast_mut(),
+                        0,
+                        size,
+                    );
                 }
             }
         }

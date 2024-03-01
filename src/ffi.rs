@@ -22,7 +22,7 @@ impl StringBuffer {
     /// set to null bytes (`\0`).
     pub fn new(length: usize) -> StringBuffer {
         StringBuffer {
-            bytes: iter::repeat(b'\0').take(length).collect(),
+            bytes: vec![b'\0'; length],
         }
     }
 
